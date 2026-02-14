@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# PyTorch & ML
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+checkpoints/
+models/saved/
+weights/
+
+# Training outputs
+logs/
+runs/
+outputs/
+experiments/
+results/
+tensorboard/
+
+# Data
+data/
+datasets/
+*.csv
+*.npy
+*.npz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.log
+*.tmp
+temp/
+tmp/
+
+# Game replays & experiences
+replays/
+experiences/
