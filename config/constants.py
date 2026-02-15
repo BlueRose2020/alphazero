@@ -1,4 +1,5 @@
 """游戏配置参数"""
+
 NO_PLAYER = 0
 PLAYER1 = 1
 PLAYER2 = -1
@@ -18,7 +19,7 @@ if USE_HISTORY:
 RESNET_LAYERS_NUM = 5  # 默认提供的残差层大小
 
 """经验池参数"""
-DEFULT_CAPACITY = 10000
+DEFAULT_CAPACITY = 10000
 
 """训练参数"""
 BATCH_SIZE = 64
@@ -26,4 +27,10 @@ SELF_PLAY_NUM = 500
 
 """日志配置"""
 import logging
-DEFULT_LOG_LEVEL = logging.DEBUG
+
+DEFAULT_LOG_LEVEL = logging.DEBUG
+
+"""多进程加速配置"""
+USE_MULTIPROCESSING = True
+if USE_MULTIPROCESSING:
+    pass

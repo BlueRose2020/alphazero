@@ -88,5 +88,11 @@ class ChessArena:
         experience_pool.put((nn_state, prior, torch.Tensor(result)))
         for nn_state, prior, player in reversed(traj[:-1]):
             result = result if player == child_player else -result
-            experience_pool.put((nn_state, prior, torch.Tensor(result)))
+            experience_pool.put(
+                (
+                    nn_state.detach().clone(),
+                    prior.detach().clone(),
+                    torch.Tensor([result]),
+                )
+            )
             child_player = player
