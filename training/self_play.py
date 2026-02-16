@@ -2,14 +2,14 @@ from typing import Type, TYPE_CHECKING, cast, Any
 
 if TYPE_CHECKING:
     from games.base import BaseGame
-    from models.base import NNModel
+    from nn_models.base import BaseModel
 
 from core.MCTS_alphazero import MCTS
 from config import *
 
 
 class ChessArena:
-    def __init__(self, model_cls: Type[NNModel], game_cls: Type[BaseGame]) -> None:
+    def __init__(self, model_cls: Type[BaseModel], game_cls: Type[BaseGame]) -> None:
         self.model = model_cls()
         self.game = game_cls()
         self.mcts = MCTS(game_cls=game_cls)
@@ -85,10 +85,17 @@ class ChessArena:
             experience_pool (ExperiencePoolType): 用于存放经验的经验池
         """
         nn_state, prior, child_player = traj[-1]
-        experience_pool.put((nn_state, prior, torch.Tensor(result)))
+        experience_pool.put_tupule_experience(
+            (
+                nn_state.detach().clone(),
+                prior.detach().clone(),
+                torch.Tensor([result]),
+            )
+        )
         for nn_state, prior, player in reversed(traj[:-1]):
             result = result if player == child_player else -result
-            experience_pool.put(
+
+            experience_pool.put_tupule_experience(
                 (
                     nn_state.detach().clone(),
                     prior.detach().clone(),

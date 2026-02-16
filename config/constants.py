@@ -1,4 +1,4 @@
-"""游戏配置参数"""
+"""游戏参数"""
 
 NO_PLAYER = 0
 PLAYER1 = 1
@@ -11,7 +11,6 @@ ALPHA = 0.3
 EPSILON = 0.25
 NUM_SIMULATION = 800
 
-"""神经网络配置"""
 USE_HISTORY = True
 if USE_HISTORY:
     HISTORY_LEN = 8
@@ -24,6 +23,7 @@ DEFAULT_CAPACITY = 10000
 """训练参数"""
 BATCH_SIZE = 64
 SELF_PLAY_NUM = 500
+LEARNING_RATE = 1e-3
 
 """日志配置"""
 import logging

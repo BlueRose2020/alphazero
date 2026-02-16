@@ -1,2 +1,2 @@
-from constants import *
-from type_alias import *
+from .constants import *
+from .type_alias import *

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TypeAlias, Optional, TYPE_CHECKING
+from typing import TypeAlias, TYPE_CHECKING
 import collections
 
 if TYPE_CHECKING:
+    from utils.share_ring_buffer import SharedRingBuffer
     from utils.experience_pool import ExperiencePool
     from core.MCTS_alphazero import MCTSNode
     import torch
-    import torch.multiprocessing as mp
 
 TensorValue: TypeAlias = "torch.Tensor"
 """shape=(1,)"""
@@ -38,6 +38,11 @@ ExperienceDate: TypeAlias = tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"
 
 价值张量(shape=(1,))"""
 ExperienceDeque: TypeAlias = collections.deque[ExperienceDate]
-ExperiencePoolType: TypeAlias = "ExperiencePool | mp.Queue[ExperienceDate]"
-ExperienceBatch: TypeAlias = Optional[tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]]
+ExperiencePoolType: TypeAlias = "ExperiencePool | SharedRingBuffer"
+ExperienceBatch: TypeAlias = tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]|None
 """包含批次通道的经验数据"""
+
+
+# 快速模型配置的类型
+ChannelsType: TypeAlias = int | tuple[int, ...] | list[int]
+FeaturesType: TypeAlias = int | tuple[int, ...] | list[int]

@@ -10,6 +10,10 @@ from config import *
 import time
 import torch
 import torch.multiprocessing as mp
+from utils.logger import setup_logger
+
+
+logger = setup_logger(__name__, rate_limit=5.0)  # 相同消息每5秒最多输出一次
 
 
 @dataclass
@@ -53,6 +57,17 @@ class SharedRingBuffer:
         value: TensorValue,
         timeout: Optional[float] = None,
     ) -> bool:
+        """向缓冲区写入一条数据
+
+        Args:
+            state: 游戏状态
+            prior: 策略先验概率
+            value: 价值评估
+            timeout: 超时时间（秒），None 表示无限等待
+
+        Returns:
+            bool: 成功写入返回 True，超时返回 False
+        """
         end_time = None if timeout is None else time.time() + timeout
         with self.not_full:
             while self.size.value >= self.capacity:  # type: ignore
@@ -76,6 +91,14 @@ class SharedRingBuffer:
             return True
 
     def get(self, timeout: Optional[float] = None) -> ExperienceDate | None:
+        """从缓冲区按顺序获取一条数据
+
+        Args:
+            timeout: 超时时间（秒），None 表示无限等待
+
+        Returns:
+            ExperienceDate | None: 如果成功获取返回 (state, prior, value)，超时返回 None
+        """
         end_time = None if timeout is None else time.time() + timeout
         with self.not_empty:
             while self.size.value <= 0:  # type:ignore
@@ -97,22 +120,38 @@ class SharedRingBuffer:
 
             return state, prior, value
 
+    def put_tupule_experience(self, experience: ExperienceDate) -> bool:
+        state, prior, value = experience
+        return self.put(state, prior, value)
+
     def sample(
         self, batch_size: int, timeout: Optional[float] = None
     ) -> ExperienceBatch:
+        """从缓冲区随机采样一批数据
+
+        Args:
+            batch_size: 批次大小
+            timeout: 超时时间（秒），None 表示无限等待
+
+        Returns:
+            ExperienceBatch | None: 如果成功采样返回 (states, prior, values)，超时返回 None
+        """
         end_time = None if timeout is None else time.time() + timeout
         with self.not_empty:
             while self.size.value < batch_size:  # type:ignore
                 if timeout is None:
+                    logger.debug("共享环形缓冲区采样等待数据")
                     self.not_empty.wait()
                 else:
                     remaining = cast(float, end_time) - time.time()
                     if remaining <= 0:
+                        logger.warning("共享环形缓冲区采样超时")
                         return None
                     self.not_empty.wait(timeout=remaining)
 
         size = self.size.value  # type:ignore
-        idxs = torch.randint(0, cast(int, size), (batch_size,), dtype=torch.int64)
+        k = min(batch_size, cast(int, size))
+        idxs = torch.randint(0, cast(int, size), (k,), dtype=torch.int64)
         states = self.states[idxs].detach().clone()
         prior = self.prior[idxs].detach().clone()
         values = self.values[idxs].detach().clone()
