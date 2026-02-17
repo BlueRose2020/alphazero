@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Type, TYPE_CHECKING, cast, Any
 
 if TYPE_CHECKING:
@@ -6,6 +7,9 @@ if TYPE_CHECKING:
 
 from core.MCTS_alphazero import MCTS
 from config import *
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class ChessArena:
@@ -13,48 +17,44 @@ class ChessArena:
         self.model = model_cls()
         self.game = game_cls()
         self.mcts = MCTS(game_cls=game_cls)
-        if USE_HISTORY:
-            from utils.history_manager import HistoryManager
-
-            self.history_manager = HistoryManager(game_cls)
 
     def self_play(self, tao: float, experience_pool: ExperiencePoolType) -> None:
         """一次自对弈"""
         done = False
         traj: list[Any] = []
+        self.game.reset()
+            
         while not done:
             # 获取状态
             state = self.game.get_state()
             player = self.game.get_player()
-            player_channel = torch.full(state.shape, player)
+            player_channel = torch.full((1,*state.shape), player)
 
             # 搜索
             if USE_HISTORY:
-                history_state = self.history_manager.get_state()
+                history_state = self.game.get_history()
+                
                 prior = self.mcts.search(
-                    type(self.game),
                     self.model,
                     state,
                     player,
                     history_state=history_state,
                 )
-                nn_state = torch.cat((history_state, player_channel))
+                nn_state = torch.cat((history_state, player_channel), dim=0).unsqueeze(0)
             else:
-                prior = self.mcts.search(type(self.game), self.model, state, player)
-                nn_state = torch.cat((state, player_channel))
+                prior = self.mcts.search(self.model, state, player)
+                nn_state = torch.cat((state, player_channel), dim=0).unsqueeze(0)
 
             # 执行动作
             prior_with_tao = torch.pow(prior, 1 / tao)
             action = cast(int, torch.multinomial(prior_with_tao, num_samples=1).item())
-
             _, player, done = self.game.step(action)
-
-            # 更新数据
-            self.history_manager.update(state)
+            
             traj.append((nn_state, prior, player))
 
         # 加入经验池
         result = self.game.evaluation()
+        logger.info(f"自对弈完成，结果: {result}, 轨迹长度: {len(traj)},正在生成经验...")
         self._generate_experience_date(traj, result, experience_pool)
 
     def load_model(self, file_path: str) -> None:
@@ -85,6 +85,7 @@ class ChessArena:
             experience_pool (ExperiencePoolType): 用于存放经验的经验池
         """
         nn_state, prior, child_player = traj[-1]
+        
         experience_pool.put_tupule_experience(
             (
                 nn_state.detach().clone(),
@@ -92,14 +93,14 @@ class ChessArena:
                 torch.Tensor([result]),
             )
         )
+        
         for nn_state, prior, player in reversed(traj[:-1]):
             result = result if player == child_player else -result
-
             experience_pool.put_tupule_experience(
-                (
-                    nn_state.detach().clone(),
-                    prior.detach().clone(),
-                    torch.Tensor([result]),
+                    (
+                        nn_state.detach().clone(),
+                        prior.detach().clone(),
+                        torch.Tensor([result]),
+                    )
                 )
-            )
             child_player = player

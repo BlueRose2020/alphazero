@@ -1,4 +1,5 @@
-from typing import Any, Type, TYPE_CHECKING
+from __future__ import annotations
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import torch
@@ -7,19 +8,19 @@ from torch import nn
 from config import *
 
 def create_resnet_block_class(
-    layer_class: Type[nn.Module],
-    norm_class: Type[nn.Module],
-    active_func: Type[nn.Module] = nn.ReLU,
+    layer_class: type[nn.Module],
+    norm_class: type[nn.Module],
+    active_func: type[nn.Module] = nn.ReLU,
 ):
     """创建残差层的工厂函数
 
     Args:
-        layer_class (Type[nn.Module]): 残差层中采用什么网络，如nn.Conv2d
-        norm_class (Type[nn.Module]): 采用的BatchNorm
-        active_func (Type[nn.Module], optional): 采用的激活函数，默认为 nn.ReLU.
+        layer_class (type[nn.Module]): 残差层中采用什么网络，如nn.Conv2d
+        norm_class (type[nn.Module]): 采用的BatchNorm
+        active_func (type[nn.Module], optional): 采用的激活函数，默认为 nn.ReLU.
 
     Returns:
-        Type[nn.Module]: 残差层类
+        type[nn.Module]: 残差层类
     """
 
     class ResnetBlock(nn.Module):

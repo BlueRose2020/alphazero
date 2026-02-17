@@ -18,7 +18,7 @@ class TemplateModel(BaseModel):
     
     AlphaZero 使用双头网络架构:
     - 共享层: 提取特征
-    - 策略头: 输出动作概率分布 (shape: (batch, NUM_ACTION))
+    - 策略头: 输出动作概率分布 (shape: (batch, num_action))
     - 价值头: 输出状态价值评估 (shape: (batch, 1))
     
     必须实现:
@@ -66,11 +66,11 @@ class TemplateModel(BaseModel):
             x: 共享层的输出特征，shape=(batch, channels, height, width)
             
         Returns:
-            TensorActions: 动作概率分布（未归一化），shape=(batch, NUM_ACTION)
+            TensorActions: 动作概率分布（未归一化），shape=(batch, num_action)
             
         注意:
             - 输出不需要经过 softmax，外部会处理
-            - 确保输出维度为 NUM_ACTION
+            - 确保输出维度为 num_action
         """
         raise NotImplementedError("请实现 policy_head 方法")
     

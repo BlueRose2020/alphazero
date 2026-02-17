@@ -48,9 +48,9 @@ def _mp_get_items(
 
 
 def test_shared_ring_buffer_put_get_order_and_wrap() -> None:
-    shapes:list[tuple[int, ...]] = [(4,), (5, 5), (6,), (7, 8, 9)]
+    shapes: list[tuple[int, ...]] = [(4,), (5, 5), (6,), (7, 8, 9)]
     for shape in shapes:
-        buffer = SharedRingBuffer(state_shape=shape, action_dim=3, capacity=2)
+        buffer = SharedRingBuffer(state_shape=shape, num_action=(3,), _capacity=2)
 
         item1 = _make_item(shape, 3, 1.0)
         item2 = _make_item(shape, 3, 2.0)
@@ -85,7 +85,7 @@ def test_shared_ring_buffer_put_get_order_and_wrap() -> None:
 
 
 def test_shared_ring_buffer_timeout_and_sample() -> None:
-    buffer = SharedRingBuffer(state_shape=(2,), action_dim=2, capacity=2)
+    buffer = SharedRingBuffer(state_shape=(2,), num_action=(2,), _capacity=2)
 
     start = time.time()
     out = buffer.get(timeout=0.01)
@@ -111,7 +111,7 @@ def test_shared_ring_buffer_timeout_and_sample() -> None:
 
 def test_shared_ring_buffer_multiprocess_put_get() -> None:
     ctx = mp.get_context("spawn")
-    buffer = SharedRingBuffer(state_shape=(3,), action_dim=2, capacity=4)
+    buffer = SharedRingBuffer(state_shape=(3,), num_action=(2,), _capacity=4)
 
     items = [
         _make_item((3,), 2, 1.0),

@@ -1,11 +1,23 @@
+from __future__ import annotations
 from config import *
 from typing import Tuple
+
+if USE_HISTORY:
+    from utils.history_manager import HistoryManager
 
 
 class BaseGame:
     def __init__(self) -> None:
+        if USE_HISTORY:
+            self.history_manager = HistoryManager(type(self))  # type: ignore
+        self.reset()
+
+    def reset(self) -> None:
+        """重置游戏到初始状态"""
         self._state = self.initial_state()
         self._player = PLAYER1
+        if USE_HISTORY:
+            self.history_manager.reset(type(self))
 
     def step(self, action: int) -> Tuple[TensorGameState, int, GameDone]:
         """执行action并返回下一状态和游戏是否结束
@@ -13,9 +25,13 @@ class BaseGame:
         Args:
             action (int): 执行的动作
         """
-        next_state, child_player = self.next_state(self._state, action)
-        done = self.is_terminal(self._state)
-        return next_state, child_player, done
+        next, child_player = self.next_state(self._state, action)
+        self._state = next
+        self._player = child_player
+        done = self.is_terminal(next)
+        if USE_HISTORY:
+            self.history_manager.update(self._state)
+        return self._state, child_player, done
 
     def get_player(self) -> int:
         return self._player
@@ -23,11 +39,16 @@ class BaseGame:
     def get_state(self) -> TensorGameState:
         return self._state.detach().clone()
 
+    def get_history(self) -> StateWithHistory:
+        if not USE_HISTORY:
+            raise RuntimeError("未启用历史记录功能")
+        return self.history_manager.get_state()
+
     def get_legal_mask(self) -> TensorActions:
         return self.legal_action_mask(self._state)
 
     def evaluation(self) -> float:
-        return self.terminal_evaluation(self._state)
+        return self.terminal_evaluation(self._state, self._player)
 
     @staticmethod
     def initial_state() -> TensorGameState:
@@ -81,14 +102,27 @@ class BaseGame:
         """
         raise NotImplementedError
 
-    @staticmethod
-    def terminal_evaluation(state: TensorGameState) -> float:
-        """游戏终局的评估函数
+    @classmethod
+    def terminal_evaluation(cls, state: TensorGameState, player: int) -> float:
+        """对于玩家数为2的零和游戏，无需实现 terminal_evaluation，BaseGame 已提供默认实现
+        如果需要自定义评估逻辑，可以重写此方法
+        """
+        winner = cls._get_winner(state)
+        if winner == player:
+            return 1.0
+        if winner == -player:
+            return -1.0
+        return 0.0
 
-        Raises:
-            NotImplementedError: 需要在子类中实现
+    @staticmethod
+    def _get_winner(state: TensorGameState) -> int | None:
+        """返回赢家，PLAYER1=1, PLAYER2=-1, 平局或未结束返回None
+        如有更多玩家，需自行定义返回值含义并重写terminal_evaluation方法
+
+        Args:
+            state (TensorGameState): _description_
 
         Returns:
-            float: 返回终局时当前玩家视角的分数
+            int | None: _description_
         """
         raise NotImplementedError

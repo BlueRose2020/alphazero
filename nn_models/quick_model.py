@@ -1,52 +1,11 @@
+from __future__ import annotations
 from config import *
 from config.quick_model_config import *
 from nn_models.base import BaseModel
-from dataclasses import dataclass
-from resnet_blocks import create_resnet_block_class
+
+from .resnet_blocks import create_resnet_block_class
 
 _Quick_MODEL_RESNET_BASE = create_resnet_block_class(nn.Conv2d, nn.BatchNorm2d)
-
-
-@dataclass(frozen=True)
-class ConvConfig:
-    kernel_size: size_2_t
-    stride: size_2_t
-    padding: size_2_t
-    active: nn.Module
-
-
-@dataclass(frozen=True)
-class LinearConfig:
-    active: nn.Module
-
-
-CONFIGS: dict[str, ConvConfig | LinearConfig] = {
-    "HIDDEN": ConvConfig(
-        HIDDEN_KERNEL_SIZE, HIDDEN_STRIDE, HIDDEN_PADDING, HIDDEN_ACTIVE_FUNC
-    ),
-    "CONV2D": ConvConfig(
-        CONV2D_KERNEL_SIZE, CONV2D_STRIDE, CONV2D_PADDING, CONV2D_ACTIVE_FUNC
-    ),
-    "RESNET": ConvConfig(
-        RESNET_KERNEL_SIZE, RESNET_STRIDE, RESNET_PADDING, RESNET_ACTIVE_FUNC
-    ),
-    "POLICY_CONV2D": ConvConfig(
-        POLICY_CONV2D_KERNEL_SIZE,
-        POLICY_CONV2D_STRIDE,
-        POLICY_CONV2D_PADDING,
-        POLICY_CONV2D_ACTIVE_FUNC,
-    ),
-    "POLICY_LINEAR": LinearConfig(
-        POLICY_LINEAR_ACTIVE_FUNC,
-    ),
-    "VALUE_CONV2D": ConvConfig(
-        VALUE_CONV2D_KERNEL_SIZE,
-        VALUE_CONV2D_STRIDE,
-        VALUE_CONV2D_PADDING,
-        VALUE_CONV2D_ACTIVE_FUNC,
-    ),
-    "VALUE_LINEAR": LinearConfig(VALUE_LINEAR_ACTIVE_FUNC),
-}
 
 
 class Quick_MODEL_RESNET(_Quick_MODEL_RESNET_BASE):

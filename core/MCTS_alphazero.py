@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional, cast, TYPE_CHECKING, Type
+from typing import Optional, cast, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from torch import nn
@@ -11,14 +13,17 @@ import math
 from config import *
 
 from games.base import BaseGame
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 @dataclass
 class MCTSNode:
-    game_cls: Type[BaseGame]
-    state: torch.Tensor
+    game_cls: type[BaseGame]
+    state: TensorGameState
     player: int
-    prior: Optional[torch.Tensor] = None
+    prior: Optional[TensorActions] = None
     parent: Optional[MCTSNode] = None
     children: ChildType = field(default_factory=lambda: cast(ChildType, {}))
     visits: int = 0
@@ -33,11 +38,11 @@ class MCTSNode:
         """
         return self.game_cls.is_terminal(self.state)
 
-    def expand(self, prior: torch.Tensor) -> None:
+    def expand(self, prior: TensorActions) -> None:
         """扩展当前节点
 
         Args:
-            prior (torch.Tensor): 该节点选择各个子节点的概率（注意归一化）
+            prior (TensorActions): 该节点选择各个子节点的概率（注意归一化）
         """
         self.prior = prior
         legal_actions = self._get_vaild_actions()
@@ -45,7 +50,7 @@ class MCTSNode:
             action_int = int(action.item())
             next_state, child_player = self._next_state(action_int)
             self.children[action_int] = MCTSNode(
-                self.game_cls, next_state, child_player
+                self.game_cls, next_state, child_player, parent=self
             )
         self.is_expand = True
 
@@ -60,14 +65,13 @@ class MCTSNode:
         sqrt_N = math.sqrt(self.visits)  # 避免多次开根号
         for action, child in self.children.items():
             q = child.value if self.player == child.player else -child.value
-            puct = q + c_puct * self.prior[action] * sqrt_N / (child.visits + 1)
+            puct = q + c_puct * self.prior[0, action] * sqrt_N / (child.visits + 1)
             if puct > best_score:
                 best_score = puct
                 best_child = child
 
         if best_child is None:
             raise ValueError("未选择子节点")
-
         return best_child
 
     def update(self, value: float) -> None:
@@ -87,6 +91,7 @@ class MCTSNode:
 
         Returns:
             GameState: 从当前状态执行action得到的状态和下一个状态的玩家
+            int: 下一个状态的玩家
         """
         next_state, child_player = self.game_cls.next_state(self.state, action)
         return next_state, child_player
@@ -103,14 +108,13 @@ class MCTSNode:
 
 class MCTS:
     def __init__(self, game_cls: type[BaseGame]) -> None:
+        self.game_cls = game_cls
         if USE_HISTORY:
             from utils.history_manager import HistoryManager
-
             self.history_manager = HistoryManager(game_cls)
 
     def search(
         self,
-        game_cls: type[BaseGame],
         model: nn.Module,
         root_state: TensorGameState,
         root_player: int,
@@ -118,16 +122,15 @@ class MCTS:
         num_simulation: int = NUM_SIMULATION,
         c_puct: float = C_PUCT,
         use_Dirichlet: bool = True,
-    ) -> torch.Tensor:
+    ) -> TensorActions:
         if history_state is None and USE_HISTORY:
             raise ValueError("使用历史信息时必须提供history_state参数")
 
-        root_node = MCTSNode(game_cls, root_state, root_player)
+        root_node = MCTSNode(self.game_cls, root_state, root_player)
         for _ in range(num_simulation):
             node: MCTSNode = root_node
             if USE_HISTORY:
                 self.history_manager.load(cast(StateWithHistory, history_state))
-
             # 选择
             while node.is_expand and not node.is_terminal():
                 node = node.select(c_puct)
@@ -135,14 +138,14 @@ class MCTS:
                     self.history_manager.update(
                         node.state
                     )  # 始终保持历史的最新状态与当前状态相同
-
             # 扩展+评估（alphazero这两步是合在一起的）
             if node.is_terminal():
-                value = game_cls.terminal_evaluation(node.state)
+                value = self.game_cls.terminal_evaluation(node.state,node.player)
             else:
                 nn_state = self._node2nn_state(node)
-                policy, value = model(nn_state)
-                mask = game_cls.legal_action_mask(node.state)
+                with torch.no_grad():
+                    policy, value = model(nn_state)
+                mask = self.game_cls.legal_action_mask(node.state)
 
                 prior = self._get_prior(
                     policy, mask, node is root_node and use_Dirichlet
@@ -150,14 +153,12 @@ class MCTS:
                 node.expand(prior)
 
                 value = value.item()
-
             # 回溯
             self._bacaward(node, value)
 
         final_prior = torch.zeros_like(cast(torch.Tensor, root_node.prior))
         for action, child in root_node.children.items():
-            final_prior[action] = child.visits
-
+            final_prior[0, action] = child.visits
         return final_prior / final_prior.sum()
 
     def _get_prior(
@@ -183,10 +184,10 @@ class MCTS:
             current = current.parent
 
     def _node2nn_state(self, node: MCTSNode) -> NNState:
-        player_channel = torch.full(node.state.shape, node.player)
+        player_channel = torch.full((1,*node.state.shape), node.player)
         if USE_HISTORY:
             history_state = self.history_manager.get_state()
             state = torch.cat((history_state, player_channel), dim=0)
         else:
-            state = torch.cat((node.state, player_channel), dim=0)
-        return state
+            state = torch.cat((node.state.unsqueeze(0), player_channel), dim=0)
+        return state.unsqueeze(0).detach().clone()

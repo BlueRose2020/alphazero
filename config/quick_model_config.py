@@ -1,5 +1,6 @@
 from torch import nn
 from config.type_alias import *
+from dataclasses import dataclass
 
 """必须设置以下两个常量与游戏匹配"""
 # =======================================#
@@ -18,6 +19,49 @@ if USE_DROPOUT:
 USE_UNIFICATION_ACTIVATE_FUNC = True
 if USE_UNIFICATION_ACTIVATE_FUNC:
     ACTIVATE_FUNC = nn.ReLU()
+
+
+@dataclass(frozen=True)
+class ConvConfig:
+    kernel_size: size_2_t
+    stride: size_2_t
+    padding: size_2_t
+    active: nn.Module
+
+
+@dataclass(frozen=True)
+class LinearConfig:
+    active: nn.Module
+
+
+CONFIGS: dict[str, ConvConfig | LinearConfig] = {}
+"""
+    "HIDDEN": ConvConfig(
+        HIDDEN_KERNEL_SIZE, HIDDEN_STRIDE, HIDDEN_PADDING, HIDDEN_ACTIVE_FUNC
+    ),
+    "CONV2D": ConvConfig(
+        CONV2D_KERNEL_SIZE, CONV2D_STRIDE, CONV2D_PADDING, CONV2D_ACTIVE_FUNC
+    ),
+    "RESNET": ConvConfig(
+        RESNET_KERNEL_SIZE, RESNET_STRIDE, RESNET_PADDING, RESNET_ACTIVE_FUNC
+    ),
+    "POLICY_CONV2D": ConvConfig(
+        POLICY_CONV2D_KERNEL_SIZE,
+        POLICY_CONV2D_STRIDE,
+        POLICY_CONV2D_PADDING,
+        POLICY_CONV2D_ACTIVE_FUNC,
+    ),
+    "POLICY_LINEAR": LinearConfig(
+        POLICY_LINEAR_ACTIVE_FUNC,
+    ),
+    "VALUE_CONV2D": ConvConfig(
+        VALUE_CONV2D_KERNEL_SIZE,
+        VALUE_CONV2D_STRIDE,
+        VALUE_CONV2D_PADDING,
+        VALUE_CONV2D_ACTIVE_FUNC,
+    ),
+    "VALUE_LINEAR": LinearConfig(VALUE_LINEAR_ACTIVE_FUNC),
+"""
 
 # 残差配置
 if USE_RESNET_BLOCK:
@@ -56,6 +100,13 @@ if USE_RESNET_BLOCK:
         HIDDEN_STRIDE = 1 if not USE_UNIFICATION_STRIDE else STRIDE  # type:ignore
         HIDDEN_PADDING = 1 if not USE_UNIFICATION_PADDING else PADDING  # type:ignore
 
+        CONFIGS["HIDDEN"] = ConvConfig(
+            kernel_size=HIDDEN_KERNEL_SIZE,
+            stride=HIDDEN_STRIDE,
+            padding=HIDDEN_PADDING,
+            active=HIDDEN_ACTIVE_FUNC,
+        )
+
     RESNET_NUM = 5
     RESNET_CHANNELS = 128
 
@@ -68,6 +119,13 @@ if USE_RESNET_BLOCK:
         nn.ReLU() if not USE_UNIFICATION_ACTIVATE_FUNC else ACTIVATE_FUNC  # type:ignore
     )
 
+    CONFIGS["RESNET"] = ConvConfig(
+        kernel_size=RESNET_KERNEL_SIZE,
+        stride=RESNET_STRIDE,
+        padding=RESNET_PADDING,
+        active=RESNET_ACTIVE_FUNC,
+    )
+
 # 非残差配置
 else:
     NUM_CONV2D = 12
@@ -78,6 +136,13 @@ else:
     CONV2D_STRIDE = 1
     CONV2D_PADDING = 1
     CONV2D_ACTIVE_FUNC = nn.ReLU()
+
+    CONFIGS["CONV2D"] = ConvConfig(
+        kernel_size=CONV2D_KERNEL_SIZE,
+        stride=CONV2D_STRIDE,
+        padding=CONV2D_PADDING,
+        active=CONV2D_ACTIVE_FUNC,
+    )
 
 # -----策略头配置-----
 # 卷积
@@ -97,6 +162,14 @@ POLICY_LINEAR_FEATURES: FeaturesType = NUM_ACTION
 
 POLICY_LINEAR_ACTIVE_FUNC = nn.ReLU()  # 不包括输出层激活函数
 
+CONFIGS["POLICY_CONV2D"] = ConvConfig(
+    kernel_size=POLICY_CONV2D_KERNEL_SIZE,
+    stride=POLICY_CONV2D_STRIDE,
+    padding=POLICY_CONV2D_PADDING,
+    active=POLICY_CONV2D_ACTIVE_FUNC,
+)
+CONFIGS["POLICY_LINEAR"] = LinearConfig(active=POLICY_LINEAR_ACTIVE_FUNC)
+
 # -----价值头配置-----
 # 卷积
 VALUE_CONV2D_NUM = 1
@@ -113,6 +186,14 @@ VALUE_LINEAR_FEATURES: FeaturesType = 1
 # 全连接层特征数，若使用元组或列表，需要VALUE_LINEAR_NUM-1个数，
 # 开头使用卷积层输出特征数，结尾使用1
 VALUE_LINEAR_ACTIVE_FUNC = nn.ReLU()  # 不包括输出层激活函数
+
+CONFIGS["VALUE_CONV2D"] = ConvConfig(
+    kernel_size=VALUE_CONV2D_KERNEL_SIZE,
+    stride=VALUE_CONV2D_STRIDE,
+    padding=VALUE_CONV2D_PADDING,
+    active=VALUE_CONV2D_ACTIVE_FUNC,
+)
+CONFIGS["VALUE_LINEAR"] = LinearConfig(active=VALUE_LINEAR_ACTIVE_FUNC)
 
 """检查配置"""
 # 检查残差层
