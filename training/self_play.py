@@ -23,38 +23,41 @@ class ChessArena:
         done = False
         traj: list[Any] = []
         self.game.reset()
-            
+
         while not done:
             # 获取状态
             state = self.game.get_state()
             player = self.game.get_player()
-            player_channel = torch.full((1,*state.shape), player)
+            player_channel = torch.full((1, *state.shape), player)
 
             # 搜索
             if USE_HISTORY:
                 history_state = self.game.get_history()
-                
+
                 prior = self.mcts.search(
                     self.model,
                     state,
                     player,
                     history_state=history_state,
                 )
-                nn_state = torch.cat((history_state, player_channel), dim=0).unsqueeze(0)
+                nn_state = torch.cat((history_state, player_channel), dim=0).unsqueeze(
+                    0
+                )
             else:
                 prior = self.mcts.search(self.model, state, player)
-                nn_state = torch.cat((state, player_channel), dim=0).unsqueeze(0)
+                nn_state = torch.cat((state.unsqueeze(0), player_channel), dim=0).unsqueeze(0)
 
             # 执行动作
             prior_with_tao = torch.pow(prior, 1 / tao)
             action = cast(int, torch.multinomial(prior_with_tao, num_samples=1).item())
-            _, player, done = self.game.step(action)
-            
+            done = self.game.step(action)
+
             traj.append((nn_state, prior, player))
 
+        logger.info(f"完成一轮自对弈，轨迹长度: {len(traj)}")
         # 加入经验池
-        result = self.game.evaluation()
-        logger.info(f"自对弈完成，结果: {result}, 轨迹长度: {len(traj)},正在生成经验...")
+        result = self.game.evaluation() # 这是下一步棋局的结果，不是nn_state对应的结果，所以需要根据玩家视角进行调整
+        result = result if self.game.get_player() == player else -result
         self._generate_experience_date(traj, result, experience_pool)
 
     def load_model(self, file_path: str) -> None:
@@ -85,7 +88,7 @@ class ChessArena:
             experience_pool (ExperiencePoolType): 用于存放经验的经验池
         """
         nn_state, prior, child_player = traj[-1]
-        
+
         experience_pool.put_tupule_experience(
             (
                 nn_state.detach().clone(),
@@ -93,14 +96,14 @@ class ChessArena:
                 torch.Tensor([result]),
             )
         )
-        
+
         for nn_state, prior, player in reversed(traj[:-1]):
             result = result if player == child_player else -result
             experience_pool.put_tupule_experience(
-                    (
-                        nn_state.detach().clone(),
-                        prior.detach().clone(),
-                        torch.Tensor([result]),
-                    )
+                (
+                    nn_state.detach().clone(),
+                    prior.detach().clone(),
+                    torch.Tensor([result]),
                 )
+            )
             child_player = player

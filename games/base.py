@@ -19,19 +19,18 @@ class BaseGame:
         if USE_HISTORY:
             self.history_manager.reset(type(self))
 
-    def step(self, action: int) -> Tuple[TensorGameState, int, GameDone]:
+    def step(self, action: int) -> GameDone:
         """执行action并返回下一状态和游戏是否结束
 
         Args:
             action (int): 执行的动作
         """
-        next, child_player = self.next_state(self._state, action)
-        self._state = next
-        self._player = child_player
-        done = self.is_terminal(next)
+        self._state, self._player = self.next_state(self._state, action)
+        
+        done = self.is_terminal(self._state)
         if USE_HISTORY:
             self.history_manager.update(self._state)
-        return self._state, child_player, done
+        return done
 
     def get_player(self) -> int:
         return self._player

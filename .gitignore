@@ -1,3 +1,26 @@
+
+# PyTorch & ML
+*.pth
+!last_model.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+checkpoints/
+models/saved/
+weights/
+
+# Training outputs
+logs/
+runs/
+outputs/
+experiments/
+results/
+tensorboard/
+Quick_history/
+Quick/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -19,24 +42,6 @@ ENV/
 .ipynb_checkpoints
 *.ipynb
 
-# PyTorch & ML
-*.pth
-*.pt
-*.ckpt
-*.h5
-*.pkl
-*.pickle
-checkpoints/
-models/saved/
-weights/
-
-# Training outputs
-logs/
-runs/
-outputs/
-experiments/
-results/
-tensorboard/
 
 # Data
 data/

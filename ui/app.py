@@ -104,7 +104,6 @@ class BaseApp:
 
             return int(prior.argmax(dim=1).item())
         else:
-
             state = self._state()
             player_channel = torch.full((1, *state.shape), self.game.get_player())
 
@@ -112,9 +111,13 @@ class BaseApp:
                 history_state = self._history_state()
                 if history_state is None:
                     raise RuntimeError("启用历史记录功能，但无法获取历史状态")
-                model_input = torch.cat((history_state, player_channel), dim=0).unsqueeze(0)
+                model_input = torch.cat(
+                    (history_state, player_channel), dim=0
+                ).unsqueeze(0)
             else:
-                model_input = torch.cat((state, player_channel), dim=0).unsqueeze(0)
+                model_input = torch.cat(
+                    (state.unsqueeze(0), player_channel), dim=0
+                ).unsqueeze(0)
 
             policy = self.model(model_input)[0].squeeze(0)
             legal_mask = self.game.get_legal_mask().squeeze(0)
@@ -139,6 +142,12 @@ class BaseApp:
                 elif event.type == pg.KEYDOWN:
                     self.on_key_down(event.key)
 
+            self.clear()
+            self.update_board()
+            self.hover()
+            self.on_draw_overlay(self.screen)
+            self.display()
+
             if (
                 self.play_with_ai
                 and not self._done()
@@ -147,12 +156,6 @@ class BaseApp:
                 ai_action = self.get_ai_action()
                 if ai_action is not None:
                     self._apply_action(ai_action)
-
-            self.clear()
-            self.update_board()
-            self.hover()
-            self.on_draw_overlay(self.screen)
-            self.display()
 
     def clear(self) -> None:
         self.screen.fill(self.theme.background_color)
@@ -174,7 +177,7 @@ class BaseApp:
     def _apply_action(self, action: int) -> None:
         if not self._is_action_legal(action):
             return
-        _, _, done = self.game.step(action)
+        done = self.game.step(action)
         self.on_after_step(action, done)
         if done:
             self.on_game_over(done)

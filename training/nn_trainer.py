@@ -2,18 +2,22 @@ from config import *
 from nn_models.base import BaseModel
 import torch
 from torch.optim import Optimizer, Adam
-from utils.logger import setup_logger
-from typing import Optional,Callable
+from utils.logger import setup_logger, colorize
+from typing import Optional, Callable
 
 logger = setup_logger(__name__)
 
-def _create_counter()->Callable[[], int]:
+
+def _create_counter() -> Callable[[], int]:
     count = 0
+
     def counter():
         nonlocal count
         count += 1
         return count
+
     return counter
+
 
 counter = _create_counter()
 
@@ -32,7 +36,7 @@ class Trainer:
         else:
             self.optim = optim
 
-    def train(self, batch_size:int = BATCH_SIZE) -> None:
+    def train(self, batch_size: int = BATCH_SIZE) -> None:
         """训练一个批次"""
         try:
             self.optim.zero_grad()
@@ -43,7 +47,7 @@ class Trainer:
             logger.warning(f"跳过训练步骤: {e}")
             return
 
-    def _calculate_loss(self,batch_size:int = BATCH_SIZE) -> torch.Tensor:
+    def _calculate_loss(self, batch_size: int = BATCH_SIZE) -> torch.Tensor:
         """计算损失函数
 
         Returns:
@@ -53,7 +57,7 @@ class Trainer:
             ValueError: 如果经验池中没有足够的数据
         """
 
-        batch = self.experience_pool.sample(batch_size)
+        batch = self.experience_pool.sample(batch_size, timeout=1.0)
         if batch is None:
             raise ValueError("经验池中没有足够的数据")
         states, target_policies, target_values = batch
@@ -70,8 +74,12 @@ class Trainer:
 
         total_loss = policy_loss + value_loss
         if counter() % LOSS_LOG_FREQUENCY == 0:
-            logger.debug(
-                f"计算损失: policy_loss={policy_loss.item():.4f}, value_loss={value_loss.item():.4f}, total_loss={total_loss.item():.4f}"
+            logger.info(
+                "计算损失: "
+                + colorize(
+                    f"policy_loss={policy_loss.item():.4f}, value_loss={value_loss.item():.4f}, total_loss={total_loss.item():.4f}",
+                    LOSS_COLOR,
+                )
             )
         return total_loss
 
@@ -85,4 +93,3 @@ class Trainer:
     def save_model(self, model_path: str) -> None:
         torch.save(self.model.state_dict(), model_path)
         logger.info(f"模型已保存: {model_path}")
-        

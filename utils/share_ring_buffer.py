@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, InitVar
+import os
 from typing import Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -55,7 +56,6 @@ class SharedRingBuffer:
         state: NNState,
         prior: TensorActions,
         value: TensorValue,
-        timeout: Optional[float] = None,
     ) -> bool:
         """向缓冲区写入一条数据
 
@@ -63,21 +63,15 @@ class SharedRingBuffer:
             state: 游戏状态
             prior: 策略先验概率
             value: 价值评估
-            timeout: 超时时间（秒），None 表示无限等待
 
         Returns:
             bool: 成功写入返回 True，超时返回 False
         """
-        end_time = None if timeout is None else time.time() + timeout
-        with self._not_full:
-            while self._size.value >= self._capacity:  # type: ignore
-                if timeout is None:
-                    self._not_full.wait()
-                else:
-                    remaning = cast(float, end_time) - time.time()
-                    if remaning <= 0:
-                        return False
-                    self._not_full.wait(timeout=remaning)
+        with self._lock:
+            if self._size.value >= self._capacity:  # type: ignore
+                # 覆盖最旧数据：读指针前移
+                self._read_idx.value = (self._read_idx.value + 1) % self._capacity  # type: ignore
+                self._size.value = self._capacity  # type: ignore
 
             idx = self._write_idx.value  # type: ignore
             self._states[idx].copy_(state)
@@ -148,9 +142,9 @@ class SharedRingBuffer:
                         return None
                     self._not_empty.wait(timeout=remaining)
 
-        size = self._size.value  # type:ignore
-        k = min(batch_size, cast(int, size))
-        idxs = torch.randint(0, cast(int, size), (k,), dtype=torch.int64)
+        size = cast(int,self._size.value)  # type:ignore
+        k = min(batch_size, size)
+        idxs = torch.randint(0, size, (k,), dtype=torch.int64)
         states = self._states[idxs].squeeze(1).detach().clone()
         prior = self._prior[idxs].squeeze(1).detach().clone()  # squeeze 掉中间的维度
         values = self._values[idxs].detach().clone()
@@ -179,6 +173,8 @@ class SharedRingBuffer:
                 'total_written': self._total_written.value,  # type:ignore
                 'capacity': self._capacity,
             }
+            if not os.path.exists(os.path.dirname(filename)):
+                os.makedirs(os.path.dirname(filename))
             torch.save(checkpoint, filename)
             logger.info(f"共享环形缓冲区已保存到 {filename}")
         

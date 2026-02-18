@@ -25,7 +25,9 @@ class ExperiencePool:
         self._date_deque.append(experience)
         self._size += 1 if self._size < len(self) else 0
 
-    def sample(self, batch_size: int = BATCH_SIZE) -> ExperienceBatch:
+    def sample(
+        self, batch_size: int = BATCH_SIZE, timeout: float = 0.0
+    ) -> ExperienceBatch: # timeout 参数目前未使用，是为了统一不同经验池接口预留的
         """从经验池中采样一个批次
 
         Returns:

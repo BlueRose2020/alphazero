@@ -1,15 +1,16 @@
-import logging
 import inspect
-from pathlib import Path
+import logging
+import re
 import time
-from typing import Any, Dict, Tuple
+from pathlib import Path
+from typing import Any
 
 import colorlog
 from config import *
 
 
 class RateLimitedLogger:
-    """带频率限制的日志记录器包装器"""
+    """带频率限制的日志记录器包装器。"""
 
     def __init__(self, logger: logging.Logger, interval: float = 1.0):
         """
@@ -19,10 +20,10 @@ class RateLimitedLogger:
         """
         self._logger = logger
         self._interval = interval
-        self._last_log_time: Dict[Tuple[int, str], float] = {}
+        self._last_log_time: dict[tuple[int, str], float] = {}
 
     def _should_log(self, level: int, msg: str) -> bool:
-        """检查是否应该输出此日志"""
+        """检查是否应该输出此日志。"""
         key = (level, msg)
         current_time = time.time()
         last_time = self._last_log_time.get(key, 0)
@@ -53,13 +54,113 @@ class RateLimitedLogger:
         self._logger.critical(msg, *args, **kwargs)
 
     def __getattr__(self, name: str) -> Any:
-        """将其他属性请求转发到内部logger"""
+        """将其他属性请求转发到内部logger。"""
         return getattr(self._logger, name)
 
 
+_ANSI_COLOR_CODES: dict[str, str] = {
+    "black": "30",
+    "red": "31",
+    "green": "32",
+    "yellow": "33",
+    "blue": "34",
+    "magenta": "35",
+    "cyan": "36",
+    "white": "37",
+    "orange": "38;5;208",
+    "pink": "38;5;213",
+    "purple": "38;5;141",
+    "gray": "90",
+    "grey": "90",
+    "light_blue": "38;5;117",
+    "bright_black": "90",
+    "bright_red": "91",
+    "bright_green": "92",
+    "bright_yellow": "93",
+    "bright_blue": "94",
+    "bright_magenta": "95",
+    "bright_cyan": "96",
+    "bright_white": "97",
+}
+
+_ANSI_BG_COLOR_CODES: dict[str, str] = {
+    "bg_white": "47",
+}
+
+
+def colorize(
+    text: str, color: str | tuple[int, int, int], *, bold: bool = False
+) -> str:
+    """为部分字符串设置颜色（仅对终端输出有效）。
+
+    color 可传入颜色名（如 "red"）或 RGB 元组 (R, G, B)。
+    """
+    if isinstance(color, tuple):
+        r, g, b = color
+        if not all(0 <= v <= 255 for v in (r, g, b)):
+            return text
+        style = f"38;2;{r};{g};{b}"
+        if bold:
+            style = "1;" + style
+        return f"\x1b[{style}m{text}\x1b[0m"
+
+    code = _ANSI_COLOR_CODES.get(color)
+    if not code:
+        return text
+    style = "1;" + code if bold else code
+    return f"\x1b[{style}m{text}\x1b[0m"
+
+
+class _StripAnsiFilter(logging.Filter):
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = self._ansi_re.sub("", record.msg)
+        return True
+
+
+class _LevelColorFormatter(colorlog.ColoredFormatter):
+    _reset = "\x1b[0m"
+
+    def _build_log_color(self, record: logging.LogRecord) -> str:
+        color_spec = self.log_colors.get(record.levelname, "")
+        if not color_spec:
+            return ""
+
+        codes: list[str] = []
+        for token in color_spec.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            if token == "bold":
+                codes.append("1")
+                continue
+            if token in _ANSI_COLOR_CODES:
+                codes.append(_ANSI_COLOR_CODES[token])
+                continue
+            if token in _ANSI_BG_COLOR_CODES:
+                codes.append(_ANSI_BG_COLOR_CODES[token])
+                continue
+
+        if not codes:
+            return ""
+        return f"\x1b[{';'.join(codes)}m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = super().format(record)
+        level_color = self._build_log_color(record)
+        if not level_color:
+            return message
+
+        message = message.replace(self._reset, f"{self._reset}{level_color}")
+        if not message.endswith(self._reset):
+            message = f"{message}{self._reset}"
+        return message
+
+
 def _get_caller_name() -> str:
-    stack = inspect.stack()
-    for frame_info in stack[2:]:
+    for frame_info in inspect.stack()[2:]:
         module = inspect.getmodule(frame_info.frame)
         if module is not None and module.__name__ != __name__:
             return Path(module.__file__ or module.__name__).stem
@@ -73,7 +174,7 @@ def setup_logger(
     console: bool = True,
     rate_limit: float | None = None,
 ) -> logging.Logger | RateLimitedLogger:
-    """设置彩色日志记录器
+    """设置彩色日志记录器。
 
     Args:
         name: logger名称，None时自动使用调用文件名
@@ -85,23 +186,22 @@ def setup_logger(
     Returns:
         配置好的logger（如果设置了rate_limit则返回包装后的logger）
     """
-    if name is None:
-        name = _get_caller_name()
+    logger_name = _get_caller_name() if name is None else name
 
-    logger = logging.getLogger(name)
+    logger = logging.getLogger(logger_name)
     logger.setLevel(level)
     logger.handlers.clear()  # 清除已有的handler
 
     # 日志格式
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    date_format = "%Y-%m-%d %H:%M:%S"
+    date_format = "%H:%M:%S"
 
     # 彩色控制台输出
     if console:
         console_handler = colorlog.StreamHandler()
         console_handler.setLevel(level)
 
-        color_formatter = colorlog.ColoredFormatter(
+        color_formatter = _LevelColorFormatter(
             fmt="%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt=date_format,
             log_colors={
@@ -124,6 +224,9 @@ def setup_logger(
 
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(level)
+
+        # 移除ANSI颜色控制符，避免写入日志文件
+        file_handler.addFilter(_StripAnsiFilter())
 
         file_formatter = logging.Formatter(log_format, datefmt=date_format)
         file_handler.setFormatter(file_formatter)

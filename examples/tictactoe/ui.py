@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pygame as pg
 
-from config.constants import PLAYER1, PLAYER2
+from config.train_config import PLAYER1, PLAYER2
 from config.type_alias import TensorGameState
 from ui.board import BoardActionResult, BoardView
 from ui.theme import UITheme
