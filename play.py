@@ -18,7 +18,7 @@ logger = setup_logger(__name__)
 
 def main() -> None:
     ai_config = AIConfig(
-        player_with_ai=True, ai_player=None, use_mcts=False, mcts_simulations=50
+        player_with_ai=True, ai_player=None, use_mcts=True, mcts_simulations=50
     )
     model = QuickModel().to(device=DEVICE)
     # model = TicTacToeModel().to(device=DEVICE)
@@ -31,8 +31,8 @@ def main() -> None:
         model.load_state_dict(torch.load(model_path, weights_only=True))
     else:
         logger.warning(f"未找到预训练模型，路径: {model_path}，将使用随机初始化的模型")
-    ui = TicTacToeAPP(model=model, ai_config=ai_config)
-    # ui = GomokuAPP(model=model, ai_config=ai_config)
+    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
+    ui = GomokuAPP(model=model, ai_config=ai_config)
     ui.run()
 
 

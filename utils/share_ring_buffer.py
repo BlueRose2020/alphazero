@@ -11,7 +11,7 @@ from config import *
 import time
 import torch
 import torch.multiprocessing as mp
-from utils.logger import setup_logger
+from utils.logger import setup_logger, colorize
 
 
 logger = setup_logger(__name__, rate_limit=5.0)  # 相同消息每5秒最多输出一次
@@ -176,7 +176,7 @@ class SharedRingBuffer:
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
             torch.save(checkpoint, filename)
-            logger.info(f"共享环形缓冲区已保存到 {filename}")
+            logger.info(colorize(f"共享环形缓冲区已保存到 {filename}", SAVE_EXP_COLOR))
         
     def load(self, filename: str) -> None:
         """从文件加载缓冲区状态

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+"""!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"""
+"""请勿修改此文件，除非你知道自己在做什么，否则可能会导致程序无法运行"""
+"""!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"""
+
 from typing import TypeAlias, TYPE_CHECKING
 import collections
 import torch

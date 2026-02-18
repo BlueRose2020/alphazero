@@ -92,4 +92,4 @@ class Trainer:
 
     def save_model(self, model_path: str) -> None:
         torch.save(self.model.state_dict(), model_path)
-        logger.info(f"模型已保存: {model_path}")
+        logger.info(colorize(f"模型已保存: {model_path}", SAVE_MODEL_COLOR))

@@ -31,7 +31,7 @@ def _save_model(
         else os.path.join(model_save_dir, "last_model.pth")
     )
     torch.save(model.state_dict(), model_path)
-    logger.info(f"已保存模型状态: {model_path}")
+    logger.info(colorize(f"已保存模型状态: {model_path}", SAVE_MODEL_COLOR))
 
 
 def _save_experience_pool(
@@ -48,7 +48,7 @@ def _save_experience_pool(
         ),
     )
     experience_pool.save(exp_path)
-    logger.info(f"已保存经验池状态: {exp_path}")
+    logger.info(colorize(f"已保存经验池状态: {exp_path}", SAVE_EXP_COLOR))
 
 
 def _infer_nn_state_shape(game_cls: Type[BaseGame]) -> ShapeType:
@@ -129,7 +129,7 @@ def _self_player_worker(
 
         logger.info(
             colorize(f"自对弈进程 {worker_id}:", PROCESSING_COLOR)
-            + "已完成所有自对弈，退出进程"
+            + colorize("已完成所有自对弈，退出进程", WORKER_FINISH_COLOR)
         )
 
     except Exception as e:
