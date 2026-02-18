@@ -1,5 +1,5 @@
 """训练参数"""
-_DEVICE = "auto"
+_DEVICE = "auto"  # 仅影响训练过程使用的设备，即只影响train.py的行为
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
@@ -28,7 +28,7 @@ _SELF_PLAY_WORKER_NUM = "auto"
 # (一个进程用于训练，另一个进程用于避免死机)
 # 你可以设置为一个固定的整数
 TRAINING_THREAD_NUM = 2  # 训练线程数量（进程数为1），默认为2，过多可能导致性能下降
-TRAIN_EPOCHS_AFTER_SELF_PLAY_DONE = 200  
+TRAIN_EPOCHS_AFTER_SELF_PLAY_DONE = 200
 # 所有自对弈完成后再进行多少轮训练，该参数是为了避免
 # 最后几轮自对弈得到的经验还未被训练到模型中就结束了训练过程
 
@@ -41,6 +41,7 @@ TRAIN_EPOCHS = 50  # 单进程模式下每次训练的轮数
 # 以下内容请勿修改，除非你知道自己在做什么，否则可能会导致程序无法运行
 # ====================================================================
 from config.basic import USE_HISTORY, _HISTORY_LEN
+
 if USE_HISTORY:
     HISTORY_LEN = _HISTORY_LEN
 
@@ -89,4 +90,3 @@ if USE_MULTIPROCESSING:
         raise ValueError(
             f"无效的SELF_PLAY_WORKER_NUM配置: {_SELF_PLAY_WORKER_NUM}，请使用 'auto' 或一个正整数"
         )
-

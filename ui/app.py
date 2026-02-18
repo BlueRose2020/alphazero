@@ -17,7 +17,7 @@ logger = setup_logger(__name__)
 
 @dataclass(frozen=True)
 class AIConfig:
-    player_with_ai: bool = True
+    play_with_ai: bool = True
     ai_player: Optional[int] = None  # 随机选择一方
     use_mcts: bool = False
 
@@ -47,8 +47,8 @@ class BaseApp:
         self.clock = pg.time.Clock()
         self.board_view = self.create_board_view()
 
-        self.play_with_ai = ai_config.player_with_ai
-        if ai_config.player_with_ai:
+        self.play_with_ai = ai_config.play_with_ai
+        if ai_config.play_with_ai:
             self.ai_player = (
                 ai_config.ai_player
                 if ai_config.ai_player in PLAYERS

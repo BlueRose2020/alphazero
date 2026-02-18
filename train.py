@@ -10,8 +10,9 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-"""在./congig/constants.py中配置训练参数，如自对弈场数、日志频率等"""
-
+"""在./congig/basic.py中配置AlphaZero算法的基本参数"""
+"""在./congig/train_config.py中配置训练参数"""
+"""训练结束后可以运行play.py来加载模型并与AI对战"""
 
 def main() -> None:
     alphazero_trainer = AlphaZeroTrainer(
