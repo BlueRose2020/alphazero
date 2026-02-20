@@ -45,6 +45,7 @@ class TemplateBoardView(BoardView):
             state: 当前棋盘状态
         """
         # TODO: 根据 state 绘制棋盘与棋子
+        # 注意对于类似于象棋等游戏，视角的显示应保证玩家在下方，模型在上方，这可能需要对状态进行翻转处理
         raise NotImplementedError
 
     # 可选：实现悬停效果

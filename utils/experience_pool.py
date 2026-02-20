@@ -27,8 +27,10 @@ class ExperiencePool:
             enhanced_experiences = DataEnhancer.get_enhance_data(*experience)
             for exp in enhanced_experiences:
                 self._date_deque.append(exp)
-        self._date_deque.append(experience)
-        self._size += 1 if self._size < len(self) else 0
+                self._size += 1 if self._size < len(self) else 0
+        else:
+            self._date_deque.append(experience)
+            self._size += 1 if self._size < len(self) else 0
 
     def sample(
         self, batch_size: int = BATCH_SIZE, timeout: float = 0.0

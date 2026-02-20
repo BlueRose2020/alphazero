@@ -25,13 +25,13 @@ def main() -> None:
     # 当use_mcts为True时，以下参数生效：
     # - mcts_simulations: 每一步AI决策时进行的蒙特卡洛树搜索模拟次数，模拟越多AI决策越强但计算越慢
     ai_config = AIConfig(
-        play_with_ai=True, ai_player=None, use_mcts=True, mcts_simulations=200
+        play_with_ai=True, ai_player=None, use_mcts=False, mcts_simulations=200
     )
 
     # 替换为你的模型类，设备你可以自行指定而无须是DEVICE
     # model = QuickModel().to(device=DEVICE)
-    # model = TicTacToeModel().to(device=DEVICE)
-    model = GomokuModel().to(device=DEVICE)
+    model = TicTacToeModel().to(device=DEVICE)
+    # model = GomokuModel().to(device=DEVICE)
 
     # 根据模型类名和是否使用历史状态来自动加载训练好的模型权重文件，无需修改
     model_name = model.__class__.__name__.replace("Model", "") + ("_history" if USE_HISTORY else "")
@@ -43,8 +43,8 @@ def main() -> None:
         logger.warning(f"未找到预训练模型，路径: {model_path}，将使用随机初始化的模型")
 
     # 替换为你的UI类
-    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
-    ui = GomokuAPP(model=model, ai_config=ai_config)
+    ui = TicTacToeAPP(model=model, ai_config=ai_config)
+    # ui = GomokuAPP(model=model, ai_config=ai_config)
     ui.run()
 
 

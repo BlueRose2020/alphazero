@@ -119,7 +119,7 @@ class MCTS:
         root_state: TensorGameState,
         root_player: int,
         history_state: Optional[StateWithHistory] = None,
-        num_simulation: int = NUM_SIMULATION,
+        num_simulation: int = TRAIN_NUM_SIMULATION,
         c_puct: float = C_PUCT,
         use_Dirichlet: bool = True,
     ) -> TensorActions:

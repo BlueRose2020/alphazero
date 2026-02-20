@@ -3,7 +3,7 @@
 import logging
 
 DEFAULT_LOG_LEVEL = logging.DEBUG
-TRAIN_LOG_FREQUENCY = 300  # 每多少轮训练输出一次日志
+TRAIN_LOG_FREQUENCY = 500  # 每多少轮训练输出一次日志
 LOSS_LOG_FREQUENCY = 50  # 每多少轮训练输出一次损失日志
 
 # 日志颜色配置
@@ -19,10 +19,10 @@ FINISH_COLOR = "bright_magenta"  # 训练完成日志颜色
 # 你可以在此处添加更多日志类型的颜色配置，并在你的日志输出中使用这些颜色配置
 
 """经验池参数"""
-DEFAULT_CAPACITY = 10000
+DEFAULT_CAPACITY = 50000
 
 """数据增强参数"""
-USE_DATA_ENHANCEMENT = True
+USE_DATA_ENHANCEMENT = True  # 是否启用数据增强
 # 以下参数仅当USE_DATA_ENHANCEMENT为True时有效
 # 同时使用旋转和翻转会得到8倍的数据增强效果
 # 均为False时则增强器只返回原始数据，不进行任何增强

@@ -1,9 +1,10 @@
 """训练参数"""
 
 _DEVICE = "auto"  # 仅影响训练过程使用的设备，即只影响train.py的行为
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 _OPTIMIZER = "Adam"  # 可选的优化器，默认为Adam，支持PyTorch中所有优化器，需与torch.optim中的类名一致
+TRAIN_NUM_SIMULATION = 150 # 每个样本进行多少次蒙特卡洛树搜索模拟，模拟越多训练越慢但效果越好
 
 # 训练过程中温度参数的设置，控制探索程度
 START_TEMPERATURE = 1.0
@@ -17,7 +18,7 @@ _SEED_BIAS = "random"
 # 多进程时每个进程随机数种子的偏移量，确保不同进程使用不同的随机数序列
 # 默认为 "random"，会在每次运行时随机生成一个偏移量，范围为0到10000
 # 你也可以设置为一个固定的整数，以确保每次运行使用相同
-NUM_SELF_PLAY_GAMES = 100  # 总共需要进行的自对弈场数
+NUM_SELF_PLAY_GAMES = 300  # 总共需要进行的自对弈场数
 SELF_PLAY_UPDATE_MODEL_FREQUENCY = 5  # 每多少轮自对弈后更新一次模型(单个进程)
 TRAIN_UPDATE_MODEL_FREQUENCY = 300  # 每多少轮训练后更新一次模型(单个进程)
 MODEL_SAVE_FREQUENCY = 2000  # 每多少轮训练自动保存一次模型状态
