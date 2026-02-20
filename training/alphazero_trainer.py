@@ -14,12 +14,14 @@ from nn_models.base import BaseModel
 from training.nn_trainer import Trainer
 from training.self_play import ChessArena
 from utils.experience_pool import ExperiencePool
-from utils.share_ring_buffer import SharedRingBuffer
+from utils.share_ring_buffer import SharedRingBufferExperiencePool
 from utils.logger import setup_logger, colorize
 
 logger = setup_logger(__name__)
 
 
+# 保存函数，包括保存模型状态，优化器状态和经验池状态
+# 用于训练过程中定期保存状态，以及训练结束时的最终保存
 def _save_model(
     model: BaseModel, model_save_dir: str, epoch: Optional[int] = None
 ) -> None:
@@ -34,6 +36,20 @@ def _save_model(
     logger.info(colorize(f"已保存模型状态: {model_path}", SAVE_MODEL_COLOR))
 
 
+def _save_optimizer(
+    optim: torch.optim.Optimizer, model_save_dir: str, epoch: Optional[int] = None
+) -> None:
+    if not os.path.exists(model_save_dir):
+        os.makedirs(model_save_dir)
+    optim_path = (
+        os.path.join(model_save_dir, f"optim_{epoch}.pth")
+        if epoch is not None
+        else os.path.join(model_save_dir, "last_optim.pth")
+    )
+    torch.save(optim.state_dict(), optim_path)
+    logger.info(colorize(f"已保存优化器状态: {optim_path}", SAVE_MODEL_COLOR))
+
+
 def _save_experience_pool(
     experience_pool: ExperiencePoolType, exp_save_dir: str
 ) -> None:
@@ -43,7 +59,7 @@ def _save_experience_pool(
         exp_save_dir,
         (
             f"experience_pool_{len(experience_pool)}.pth"
-            if isinstance(experience_pool, SharedRingBuffer)
+            if isinstance(experience_pool, SharedRingBufferExperiencePool)
             else f"experience_pool_{len(experience_pool)}.pkl"
         ),
     )
@@ -51,45 +67,18 @@ def _save_experience_pool(
     logger.info(colorize(f"已保存经验池状态: {exp_path}", SAVE_EXP_COLOR))
 
 
-def _infer_nn_state_shape(game_cls: Type[BaseGame]) -> ShapeType:
-    """nn_state,包含批次通道
-    注意玩家视角还有一个通道
-    """
-    state_shape = tuple(game_cls.initial_state().shape)
-
-    if USE_HISTORY:
-        if len(state_shape) >= 3:
-            return (1, state_shape[0] * HISTORY_LEN + 1, *state_shape[1:])
-        return (1, HISTORY_LEN + 1, *state_shape)
-
-    if len(state_shape) >= 3:
-        return (1, state_shape[0] + 1, *state_shape[1:])
-    return (1, 2, *state_shape)
-
-
-def create_experience_pool(game_cls: Type[BaseGame]) -> ExperiencePoolType:
-    if USE_MULTIPROCESSING:
-        action_mask = game_cls.legal_action_mask(game_cls.initial_state())
-        num_action = int(action_mask.numel())
-        nn_state_shape = _infer_nn_state_shape(game_cls)
-        return SharedRingBuffer(
-            state_shape=nn_state_shape,
-            num_action=(1, num_action),
-            _capacity=DEFAULT_CAPACITY,
-        )
-    return ExperiencePool(capacity=DEFAULT_CAPACITY)
-
-
+# 训练和自对弈的工作函数，分别在不同的进程中运行
 def _self_player_worker(
     model_cls: Type[BaseModel],
     game_cls: Type[BaseGame],
     model_state: dict[str, torch.Tensor],
     experience_pool: ExperiencePoolType,
-    num_games: int,
+    num_self_play_games: int,
     worker_id: int,
     model_lock: Any,
 ) -> None:
     try:
+        # 初始化进程
         seed = SEED_BIAS + worker_id
         random.seed(seed)
         torch.manual_seed(seed)
@@ -98,15 +87,19 @@ def _self_player_worker(
 
         torch.set_num_threads(1)
         arena = ChessArena(model_cls, game_cls)
-        arena.model.load_state_dict(model_state)
+        with model_lock:
+            arena.model.load_state_dict(model_state)
+
+        # 开始自对弈
         tempertature = START_TEMPERATURE
-        for game_idx in range(num_games):
+        for game_idx in range(num_self_play_games):
             logger.info(
                 colorize(f"自对弈进程 {worker_id}:", PROCESSING_COLOR)
-                + f"开始第 {game_idx+1}/{num_games} 场自对弈，当前温度: {tempertature:.4f}"
+                + f"开始第 {game_idx+1}/{num_self_play_games} 场自对弈，当前温度: {tempertature:.4f}"
             )
 
-            if (game_idx + 1) % UPDATE_MODEL_FREQUENCY == 0:
+            # 每隔一定轮数更新一次模型状态，以便自对弈过程中使用最新的模型进行决策
+            if (game_idx + 1) % SELF_PLAY_UPDATE_MODEL_FREQUENCY == 0:
                 logger.info(
                     colorize(f"自对弈进程 {worker_id} :", PROCESSING_COLOR)
                     + colorize(
@@ -131,13 +124,13 @@ def _self_player_worker(
             colorize(f"自对弈进程 {worker_id}:", PROCESSING_COLOR)
             + colorize("已完成所有自对弈，退出进程", WORKER_FINISH_COLOR)
         )
-
     except Exception as e:
         logger.error(f"自对弈进程 {worker_id} 遇到错误: {e}", exc_info=True)
 
 
 def _training_worker(
     model_cls: Type[BaseModel],
+    optim: Optimizer,
     experience_pool: ExperiencePoolType,
     self_play_done: Any,  # 自对弈完成标志
     model_state: dict[str, torch.Tensor],
@@ -146,9 +139,9 @@ def _training_worker(
     try:
         import time
 
-        torch.set_num_threads(TRAINING_THREAD_NUM)
+        torch.set_num_threads(1)
         model = model_cls()
-        trainer = Trainer(model, experience_pool)
+        trainer = Trainer(model, experience_pool, optim)
         batch_size = BATCH_SIZE
 
         last_exp_save_time = time.time()
@@ -163,7 +156,23 @@ def _training_worker(
         dir_name = model_cls.__name__.replace("Model", "") + (
             "_history" if USE_HISTORY else ""
         )
+        model_save_dir = str(Path("result") / "models" / dir_name)
+
+        # 训练进程启动时加载之前的模型状态，确保训练进程使用最新的模型参数进行训练
+        with model_lock:
+            trainer.model.load_state_dict(
+                {k: v.clone() for k, v in model_state.items()}
+            )
+
+        # 定义一个函数来更新模型状态到共享内存，减小代码冗余
+        def update_model() -> None:
+            with model_lock:
+                new_state = trainer.model.state_dict()
+                for k, v in model_state.items():
+                    v.copy_(new_state[k].detach().cpu())
+
         while not self_play_done.value:
+            # 检查经验池中是否有足够的数据进行训练，如果没有则等待一段时间后继续检查，避免频繁尝试训练导致的性能问题
             exp_size = experience_pool.size()
             if exp_size < max(batch_size, MIN_EXP_SIZE_FOR_TRAINING):
                 time.sleep(10)
@@ -177,15 +186,13 @@ def _training_worker(
             try:
                 trainer.train()
                 n += 1
-
-                with model_lock:
-                    new_state = trainer.model.state_dict()
-                    for k, v in model_state.items():
-                        v.copy_(new_state[k].detach().cpu())
             except Exception as e:
                 logger.error(f"[训练进程] 训练过程中遇到错误: {e}", exc_info=True)
                 continue
 
+            # 判断是否需要更新模型状态到共享内存，以及是否需要保存模型和经验池状态，控制日志输出频率，避免过于频繁的操作导致性能问题
+            if n % TRAIN_UPDATE_MODEL_FREQUENCY == 0:
+                update_model()
             if n % TRAIN_LOG_FREQUENCY == 0:
                 logger.info(
                     colorize("训练进程: ", PROCESSING_COLOR)
@@ -196,28 +203,35 @@ def _training_worker(
                 )
 
             if n % MODEL_SAVE_FREQUENCY == 0:
-                model_save_dir = str(Path("result") / "models" / dir_name)
                 _save_model(trainer.model, model_save_dir, n // MODEL_SAVE_FREQUENCY)
+                _save_optimizer(
+                    trainer.optim, model_save_dir, n // MODEL_SAVE_FREQUENCY
+                )
 
             if time.time() - last_exp_save_time >= EXP_SAVE_FREQUENCY:
                 exp_save_dir = str(Path("result") / "experiences" / dir_name)
                 _save_experience_pool(experience_pool, exp_save_dir)
                 last_exp_save_time = time.time()
 
+        # 等待所有自对弈完成后，进行最后的训练和保存，确保最后的自对弈经验得到使用
         for _ in range(TRAIN_EPOCHS_AFTER_SELF_PLAY_DONE):
             try:
                 trainer.train()
-
-                with model_lock:
-                    new_state = trainer.model.state_dict()
-                    for k, v in model_state.items():
-                        v.copy_(new_state[k].detach().cpu())
             except Exception as e:
                 logger.error(f"[训练进程] 训练过程中遇到错误: {e}", exc_info=True)
 
+        # 保存最终的结果并输出日志
         logger.info(
             colorize("训练进程: ", PROCESSING_COLOR)
-            + colorize("训练完毕，训练进程退出", FINISH_COLOR)
+            + colorize("正在保存最终模型和经验池状态...", FINISH_COLOR)
+        )
+        update_model()
+        _save_optimizer(trainer.optim, model_save_dir)
+        _save_model(trainer.model, model_save_dir)
+
+        logger.info(
+            colorize("训练进程: ", PROCESSING_COLOR)
+            + colorize("保存完毕，训练进程退出", FINISH_COLOR)
         )
 
     except Exception as e:
@@ -229,40 +243,51 @@ class AlphaZeroTrainer:
         self,
         model_cls: Type[BaseModel],
         game_cls: Type[BaseGame],
-        exp: Optional[ExperiencePoolType] = None,
     ) -> None:
-        self.model = model_cls()
+        # 初始化模型、游戏和经验池
+        self.model = model_cls().to(device=DEVICE)
         self.game = game_cls()
-        self.exp = exp if exp is not None else create_experience_pool(game_cls)
+        self.optim = OPTIMIZER(self.model.parameters(), lr=LEARNING_RATE)
+        self.experience_pool = AlphaZeroTrainer._create_experience_pool(game_cls)
 
-        self.trainer = Trainer(self.model, self.exp)
-        self.arena = ChessArena(model_cls, game_cls)
-
+        # 加载之前训练的模型权重，优化器和经验池状态（如果存在）
         save_dir = model_cls.__name__.replace("Model", "") + (
             "_history" if USE_HISTORY else ""
         )
         self._model_save_dir = str(Path("result") / "models" / save_dir)
+        self._optim_save_dir = str(Path("result") / "optimizers" / save_dir)
         self._exp_save_dir = str(Path("result") / "experiences" / save_dir)
+
         if model_cls.__name__ == "QuickModel":
             self._load_quick_model_previous_state()
         else:
-            self._load_previous_state()  # 会自动判断是否存在之前的模型和经验池状态并加载
+            self._load_previous_state()  # 会自动判断是否存在之前的模型,优化器和经验池状态并加载
 
+        # 初始化训练器和自对弈环境
+        self.trainer = Trainer(
+            model=self.model,
+            experience_pool=self.experience_pool,
+            optim=self.optim,
+        )
+
+        self.arena = ChessArena(model_cls, game_cls)
+
+        # 输出日志
         logger.info("AlphaZero 训练器初始化完成")
         logger.info(f"模型: {model_cls.__name__}")
         logger.info(f"游戏: {game_cls.__name__}")
         logger.info(f"多进程自对弈: {'启用' if USE_MULTIPROCESSING else '禁用'}")
 
-    def train(
-        self,
-    ) -> None:
-        logger.info("=" * 60)
-        logger.info("开始训练")
-        logger.info("=" * 60)
-
-        if USE_MULTIPROCESSING and isinstance(self.exp, SharedRingBuffer):
+    # 训练函数
+    def train(self) -> None:
+        # 判断经验池类型与多进程配置是否匹配，并选择相应的训练流程
+        if USE_MULTIPROCESSING and isinstance(
+            self.experience_pool, SharedRingBufferExperiencePool
+        ):
             self._multi_process_parallel()
-        elif not USE_MULTIPROCESSING and isinstance(self.exp, ExperiencePool):
+        elif not USE_MULTIPROCESSING and isinstance(
+            self.experience_pool, ExperiencePool
+        ):
             self._single_process_self_play()
         else:
             logger.warning("经验池类型与多进程配置不匹配，改为单进程自对弈")
@@ -270,23 +295,8 @@ class AlphaZeroTrainer:
                 self._single_process_self_play()
                 self._train_phase()
 
-        logger.info("保存最后的模型状态...")
-        _save_model(self.model, self._model_save_dir)
-
-        logger.info("保存经验池")
-        self.exp.save(
-            os.path.join(
-                self._exp_save_dir,
-                (
-                    f"experience_pool_{len(self.exp)}.pkl"
-                    if isinstance(self.exp, ExperiencePool)
-                    else f"experience_pool_{len(self.exp)}.pth"
-                ),
-            )
-        )
-        logger.info("经验池保存完成")
-
     def _multi_process_parallel(self) -> None:
+        # 使用spawn方式创建子进程，确保每个子进程都有独立的内存空间，避免数据竞争和死锁问题
         ctx = mp.get_context("spawn")
         workers = min(SELF_PLAY_WORKER_NUM, NUM_SELF_PLAY_GAMES)
         if workers <= 0:  # 还有一个收集经验的进程
@@ -301,10 +311,12 @@ class AlphaZeroTrainer:
         model_lock = ctx.Lock()
         self_play_done = ctx.Value("b", False)
 
+        # 将总的自对弈场数平均分配给每个自对弈进程，确保所有自对弈场数都被分配完
         games_per_worker: list[int] = [NUM_SELF_PLAY_GAMES // workers] * workers
         for i in range(NUM_SELF_PLAY_GAMES % workers):
             games_per_worker[i] += 1
 
+        # 启动自对弈进程
         processes = []
         for worker_id, games in enumerate(games_per_worker, start=1):
             p = ctx.Process(
@@ -313,7 +325,7 @@ class AlphaZeroTrainer:
                     type(self.model),
                     type(self.game),
                     model_state,
-                    self.exp,
+                    self.experience_pool,
                     games,
                     worker_id,
                     model_lock,
@@ -323,11 +335,13 @@ class AlphaZeroTrainer:
             processes.append(p)
             logger.info(f"已启动自对弈进程 {worker_id}，负责 {games} 场自对弈")
 
+        # 启动训练进程
         trainer_process = ctx.Process(
             target=_training_worker,
             args=(
                 type(self.model),
-                self.exp,
+                self.optim,
+                self.experience_pool,
                 self_play_done,
                 model_state,
                 model_lock,
@@ -335,23 +349,20 @@ class AlphaZeroTrainer:
         )
         trainer_process.start()
 
+        # 等待所有进程完成
         for p in processes:
             p.join()
         logger.info(colorize("所有自对弈进程已完成", FINISH_COLOR))
 
         self_play_done.value = True
         trainer_process.join()
-        logger.info(colorize("训练进程已完成", FINISH_COLOR))
-
-        with model_lock:
-            self.model.load_state_dict({k: v.clone() for k, v in model_state.items()})
 
     def _single_process_self_play(self) -> None:
         self.arena.model.load_state_dict(self.model.state_dict())
         temp = START_TEMPERATURE
         for game_num in range(TRAIN_FREQUENCY):
             try:
-                self.arena.self_play(tao=temp, experience_pool=self.exp)
+                self.arena.self_play(tao=temp, experience_pool=self.experience_pool)
                 temp = max(temp * TEMPERATURE_DECAY, END_TEMPERATURE)
                 if (game_num + 1) % 50 == 0:
                     logger.info(f"已完成 {game_num+1} 场自对弈，当前温度: {temp:.4f}")
@@ -364,41 +375,13 @@ class AlphaZeroTrainer:
         """单进程的训练阶段"""
         for epoch in range(TRAIN_EPOCHS):
             try:
-                batch_size = min(BATCH_SIZE, self.exp.size())
+                batch_size = min(BATCH_SIZE, self.experience_pool.size())
                 if batch_size == 0:
                     logger.warning("经验池为空，跳过训练阶段")
                     return
                 self.trainer.train(batch_size=batch_size)
             except Exception as e:
                 logger.error(f"[训练阶段] 第 {epoch} 轮训练失败: {e}", exc_info=True)
-
-    def _load_previous_state(self) -> None:
-        """加载之前的模型和经验池状态"""
-        if os.path.exists(os.path.join(self._model_save_dir, "last_model.pth")):
-            self.model.load_state_dict(
-                torch.load(
-                    os.path.join(self._model_save_dir, "last_model.pth"),
-                    weights_only=True,
-                )
-            )
-            logger.info(f"已加载之前的模型状态: {self._model_save_dir}/last_model.pth")
-
-        experience_file = (
-            f"experience_pool_{len(self.exp)}.pkl"
-            if isinstance(self.exp, ExperiencePool)
-            else f"experience_pool_{len(self.exp)}.pth"
-        )
-
-        if os.path.exists(os.path.join(self._exp_save_dir, experience_file)):
-            self.exp.load(
-                os.path.join(
-                    self._exp_save_dir,
-                    experience_file,
-                )
-            )
-            logger.info(
-                f"已加载之前的经验池状态: {self._exp_save_dir}/{experience_file}"
-            )
 
     def _load_quick_model_previous_state(self) -> None:
         """专门为QuickModel加载之前的状态，以兼容不同配置下的模型结构变化"""
@@ -410,13 +393,100 @@ class AlphaZeroTrainer:
             )
             input_str = ""
             while input_str.lower() not in {"y", "n"}:
-                input_str = input(
-                    "是否覆盖？y/n: "
-                )
+                input_str = input("是否覆盖？y/n: ")
             if input_str.lower() == "y":
                 logger.info("将覆盖之前的模型状态，使用随机初始化的模型进行训练")
-                
+
                 self.model = type(self.model)()  # 重新初始化模型
             else:
                 logger.info("退出训练")
                 exit(0)
+
+    def _load_previous_state(self) -> None:
+        """加载之前的模型，优化器和经验池状态"""
+        self._load_model_state()
+        self._load_optimizer_state()
+        self._load_experience_pool_state()
+
+    # 加载函数和辅助函数
+    def _load_model_state(self) -> None:
+        if os.path.exists(os.path.join(self._model_save_dir, "last_model.pth")):
+            try:
+                self.model.load_state_dict(
+                    torch.load(
+                        os.path.join(self._model_save_dir, "last_model.pth"),
+                        weights_only=True,
+                    )
+                )
+                logger.info(
+                    f"已加载之前的模型状态: {self._model_save_dir}/last_model.pth"
+                )
+            except Exception as e:
+                logger.warning(f"加载模型状态失败: {e}")
+        else:
+            logger.info(f"未找到之前的模型状态，将使用随机初始化的模型")
+
+    def _load_optimizer_state(self) -> None:
+        if os.path.exists(os.path.join(self._optim_save_dir, "last_optim.pth")):
+            try:
+                self.optim.load_state_dict(
+                    torch.load(os.path.join(self._optim_save_dir, "last_optim.pth"))
+                )
+                logger.info(
+                    f"已加载之前的优化器状态: {self._optim_save_dir}/last_optim.pth"
+                )
+            except Exception as e:
+                logger.warning(f"加载优化器状态失败: {e}")
+        else:
+            logger.info(f"未找到之前的优化器状态，将使用新初始化的优化器")
+
+    def _load_experience_pool_state(self) -> None:
+        experience_path = self._get_experience_path()
+
+        if os.path.exists(experience_path):
+            try:
+                self.experience_pool.load(experience_path)
+                logger.info(f"已加载之前的经验池状态: {experience_path}")
+            except Exception as e:
+                logger.warning(f"加载经验池状态失败: {e}")
+        else:
+            logger.info(f"未找到之前的经验池状态，将使用空的经验池")
+
+    def _get_experience_path(self) -> str:
+        experience_file = (
+            f"experience_pool_{len(self.experience_pool)}.pkl"
+            if isinstance(self.experience_pool, ExperiencePool)
+            else f"experience_pool_{len(self.experience_pool)}.pth"
+        )
+        experience_path = os.path.join(self._exp_save_dir, experience_file)
+        return experience_path
+
+    # 静态辅助函数
+    @staticmethod
+    def _create_experience_pool(game_cls: Type[BaseGame]) -> ExperiencePoolType:
+        if USE_MULTIPROCESSING:
+            nn_state_shape = AlphaZeroTrainer._infer_nn_state_shape(game_cls)
+            action_mask = game_cls.legal_action_mask(game_cls.initial_state())
+            num_action = int(action_mask.numel())
+            return SharedRingBufferExperiencePool(
+                state_shape=nn_state_shape,
+                num_action=(1, num_action),
+                _capacity=DEFAULT_CAPACITY,
+            )
+        return ExperiencePool(capacity=DEFAULT_CAPACITY)
+
+    @staticmethod
+    def _infer_nn_state_shape(game_cls: Type[BaseGame]) -> ShapeType:
+        """nn_state,包含批次通道
+        注意玩家视角还有一个通道
+        """
+        state_shape = tuple(game_cls.initial_state().shape)
+
+        if USE_HISTORY:
+            if len(state_shape) >= 3:
+                return (1, state_shape[0] * HISTORY_LEN + 1, *state_shape[1:])
+            return (1, HISTORY_LEN + 1, *state_shape)
+
+        if len(state_shape) >= 3:
+            return (1, state_shape[0] + 1, *state_shape[1:])
+        return (1, 2, *state_shape)

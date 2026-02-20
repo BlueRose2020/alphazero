@@ -9,7 +9,7 @@ import collections
 import torch
 
 if TYPE_CHECKING:
-    from utils.share_ring_buffer import SharedRingBuffer
+    from utils.share_ring_buffer import SharedRingBufferExperiencePool
     from utils.experience_pool import ExperiencePool
     from core.MCTS_alphazero import MCTSNode
 
@@ -20,7 +20,10 @@ TensorActions: TypeAlias = "torch.Tensor"
 TensorGameState: TypeAlias = "torch.Tensor"
 """不包含批次维度"""
 NNState: TypeAlias = "torch.Tensor"
-"""shape = (1,HISTORY_LEN+1,*state_shape)
+"""shape = (1,HISTORY_LEN+1,*state_shape)或
+shape = (1,2,*state_shape)，其中HISTORY_LEN为
+历史状态数量，state_shape为游戏状态的空间维度
+2表示当前状态和当前玩家的标识（如1或-1）两个通道
 用于神经网络
 """
 StateWithHistory: TypeAlias = "torch.Tensor"
@@ -37,7 +40,7 @@ ShapeType: TypeAlias = tuple[int, ...]
 ExperienceDate: TypeAlias = tuple[NNState, TensorActions, TensorValue]
 """包含批次通道的经验数据，形如 (nn_state, prior, value)"""
 ExperienceDeque: TypeAlias = collections.deque[ExperienceDate]
-ExperiencePoolType: TypeAlias = "ExperiencePool | SharedRingBuffer"
+ExperiencePoolType: TypeAlias = "ExperiencePool | SharedRingBufferExperiencePool"
 ExperienceBatch: TypeAlias = ExperienceDate | None
 """包含批次通道的经验数据"""
 

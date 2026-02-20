@@ -12,13 +12,13 @@ import time
 import torch
 import torch.multiprocessing as mp
 from utils.logger import setup_logger, colorize
-
+from utils.data_enhancer import DataEnhancer
 
 logger = setup_logger(__name__, rate_limit=5.0)  # 相同消息每5秒最多输出一次
 
 
 @dataclass
-class SharedRingBuffer:
+class SharedRingBufferExperiencePool:
     state_shape: InitVar[ShapeType]
     num_action: InitVar[ShapeType]
 
@@ -67,6 +67,7 @@ class SharedRingBuffer:
         Returns:
             bool: 成功写入返回 True，超时返回 False
         """
+
         with self._lock:
             if self._size.value >= self._capacity:  # type: ignore
                 # 覆盖最旧数据：读指针前移
@@ -115,7 +116,13 @@ class SharedRingBuffer:
 
     def put_tupule_experience(self, experience: ExperienceDate) -> bool:
         state, prior, value = experience
-        return self.put(state, prior, value)
+        if USE_DATA_ENHANCEMENT:
+            enhanced_data = DataEnhancer.get_enhance_data(state, prior, value)
+            for exp in enhanced_data:
+                self.put(*exp)
+            return True
+        else:
+            return self.put(state, prior, value)
 
     def sample(
         self, batch_size: int, timeout: Optional[float] = None

@@ -4,6 +4,7 @@ import random
 import pickle
 import torch
 from dataclasses import dataclass, field, InitVar
+from utils.data_enhancer import DataEnhancer
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -22,6 +23,10 @@ class ExperiencePool:
         logger.debug(
             f"将经验添加到经验池: nn_state={experience[0].shape}, prior={experience[1]}, value={experience[2]}"
         )
+        if USE_DATA_ENHANCEMENT:
+            enhanced_experiences = DataEnhancer.get_enhance_data(*experience)
+            for exp in enhanced_experiences:
+                self._date_deque.append(exp)
         self._date_deque.append(experience)
         self._size += 1 if self._size < len(self) else 0
 

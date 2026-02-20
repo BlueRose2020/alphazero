@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import colorlog
-from config import *
+from config.utils_config import DEFAULT_LOG_LEVEL
 
 
 class RateLimitedLogger:

@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import pygame as pg
 
-from config.train_config import PLAYER1, PLAYER2
-from config.type_alias import TensorGameState
+from config import *
 from ui.board import BoardActionResult, BoardView
 from ui.theme import UITheme
-from config import *
 from ui.app import BaseApp, AIConfig
 from nn_models.base import BaseModel
 from .game import TicTacToeGame

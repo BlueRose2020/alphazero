@@ -1,9 +1,9 @@
 from config import *
 from nn_models.base import BaseModel
 import torch
-from torch.optim import Optimizer, Adam
+from torch.optim import Adafactor,Adadelta,Adagrad,Adam,Adamax,AdamW,ASGD,LBFGS,lr_scheduler,Muon,NAdam,Optimizer,RAdam,RMSprop,Rprop,SGD,SparseAdam,swa_utils
 from utils.logger import setup_logger, colorize
-from typing import Optional, Callable
+from typing import Callable
 
 logger = setup_logger(__name__)
 
@@ -27,14 +27,11 @@ class Trainer:
         self,
         model: BaseModel,
         experience_pool: ExperiencePoolType,
-        optim: Optional[Optimizer] = None,
+        optim: Optimizer,
     ) -> None:
         self.model = model.to(DEVICE)
         self.experience_pool = experience_pool
-        if optim is None:
-            self.optim = Adam(self.model.parameters(), lr=LEARNING_RATE)
-        else:
-            self.optim = optim
+        self.optim = optim
 
     def train(self, batch_size: int = BATCH_SIZE) -> None:
         """训练一个批次"""

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import pygame as pg
 
-from config.train_config import PLAYER1, PLAYER2
-from config.type_alias import TensorGameState
 from ui.board import BoardActionResult, BoardView
 from config import *
 from ui.app import BaseApp, AIConfig

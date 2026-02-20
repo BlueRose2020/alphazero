@@ -3,7 +3,7 @@ import torch
 import torch.multiprocessing as mp
 from config import ExperienceDate
 
-from utils.share_ring_buffer import SharedRingBuffer
+from utils.share_ring_buffer import SharedRingBufferExperiencePool
 
 
 def _make_item(
@@ -16,19 +16,19 @@ def _make_item(
 
 
 def _mp_put_items(
-    buffer: SharedRingBuffer,
+    buffer: SharedRingBufferExperiencePool,
     items: list[ExperienceDate],
     result_queue: "mp.Queue[bool]",
 ) -> None:
     for item in items:
-        if not buffer.put(*item, timeout=1.0):
+        if not buffer.put(*item):
             result_queue.put(False)
             return
     result_queue.put(True)
 
 
 def _mp_get_items(
-    buffer: SharedRingBuffer,
+    buffer: SharedRingBufferExperiencePool,
     expected_items: list[ExperienceDate],
     result_queue: "mp.Queue[bool]",
 ) -> None:
@@ -50,7 +50,7 @@ def _mp_get_items(
 def test_shared_ring_buffer_put_get_order_and_wrap() -> None:
     shapes: list[tuple[int, ...]] = [(4,), (5, 5), (6,), (7, 8, 9)]
     for shape in shapes:
-        buffer = SharedRingBuffer(state_shape=shape, num_action=(3,), _capacity=2)
+        buffer = SharedRingBufferExperiencePool(state_shape=shape, num_action=(3,), _capacity=2)
 
         item1 = _make_item(shape, 3, 1.0)
         item2 = _make_item(shape, 3, 2.0)
@@ -85,7 +85,7 @@ def test_shared_ring_buffer_put_get_order_and_wrap() -> None:
 
 
 def test_shared_ring_buffer_timeout_and_sample() -> None:
-    buffer = SharedRingBuffer(state_shape=(2,), num_action=(2,), _capacity=2)
+    buffer = SharedRingBufferExperiencePool(state_shape=(2,), num_action=(2,), _capacity=2)
 
     start = time.time()
     out = buffer.get(timeout=0.01)
@@ -111,7 +111,7 @@ def test_shared_ring_buffer_timeout_and_sample() -> None:
 
 def test_shared_ring_buffer_multiprocess_put_get() -> None:
     ctx = mp.get_context("spawn")
-    buffer = SharedRingBuffer(state_shape=(3,), num_action=(2,), _capacity=4)
+    buffer = SharedRingBufferExperiencePool(state_shape=(3,), num_action=(2,), _capacity=4)
 
     items = [
         _make_item((3,), 2, 1.0),
