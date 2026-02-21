@@ -21,15 +21,29 @@ logger = setup_logger(__name__)
 
 
 class TrainerUtils:
+    _game_cls: Type[BaseGame] = BaseGame  # 用于设置使用快速模型时的保存目录
+
+    @staticmethod
+    def set_game_cls(game_cls: Type[BaseGame]) -> None:
+        """设置游戏类，用于在使用QuickModel时确定保存目录"""
+        TrainerUtils._game_cls = game_cls
+
     @staticmethod
     def ensure_dir(path: str) -> None:
         os.makedirs(path, exist_ok=True)
 
     @staticmethod
     def get_save_dirs(model_cls: Type[BaseModel]) -> tuple[str, str, str]:
-        dir_name = model_cls.__name__.replace("Model", "") + (
-            "_history" if USE_HISTORY else ""
-        )
+        if model_cls.__name__ == "QuickModel":
+            dir_name = (
+                "Quick"
+                + TrainerUtils._game_cls.__name__.replace("Game", "")
+                + ("_history" if USE_HISTORY else "")
+            )
+        else:
+            dir_name = model_cls.__name__.replace("Model", "") + (
+                "_history" if USE_HISTORY else ""
+            )
         model_dir = str(Path("result") / "models" / dir_name)
         optim_dir = str(Path("result") / "optimizers" / dir_name)
         exp_dir = str(Path("result") / "experiences" / dir_name)
@@ -52,9 +66,7 @@ class TrainerUtils:
                 v.copy_(new_state[k].detach().cpu())
 
     @staticmethod
-    def load_optimizer_state(
-        optim: torch.optim.Optimizer, optim_save_dir: str
-    ) -> None:
+    def load_optimizer_state(optim: torch.optim.Optimizer, optim_save_dir: str) -> None:
         optim_path = os.path.join(optim_save_dir, "last_optim.pth")
         if os.path.exists(optim_path):
             try:
@@ -71,7 +83,7 @@ class TrainerUtils:
     ) -> None:
         TrainerUtils.ensure_dir(model_save_dir)
         model_path = (
-            os.path.join(model_save_dir, f"model_{epoch}.pth")
+            os.path.join(model_save_dir, f"current_model.pth")
             if epoch is not None
             else os.path.join(model_save_dir, "last_model.pth")
         )
@@ -84,7 +96,7 @@ class TrainerUtils:
     ) -> None:
         TrainerUtils.ensure_dir(optim_save_dir)
         optim_path = (
-            os.path.join(optim_save_dir, f"optim_{epoch}.pth")
+            os.path.join(optim_save_dir, f"current_optim.pth")
             if epoch is not None
             else os.path.join(optim_save_dir, "last_optim.pth")
         )
@@ -187,7 +199,9 @@ def _self_player_worker(
                         UPDATE_MODEL_COLOR,
                     )
                 )
-                TrainerUtils.sync_model_from_shared(arena.model, model_state, model_lock)
+                TrainerUtils.sync_model_from_shared(
+                    arena.model, model_state, model_lock
+                )
                 logger.info(
                     colorize(f"自对弈进程 {worker_id} :", PROCESSING_COLOR)
                     + colorize(
@@ -243,9 +257,7 @@ def _training_worker(
 
         # 定义一个函数来更新模型状态到共享内存，减小代码冗余
         def update_model() -> None:
-            TrainerUtils.sync_shared_from_model(
-                trainer.model, model_state, model_lock
-            )
+            TrainerUtils.sync_shared_from_model(trainer.model, model_state, model_lock)
 
         while not self_play_done.value:
             # 检查经验池中是否有足够的数据进行训练，如果没有则等待一段时间后继续检查，避免频繁尝试训练导致的性能问题
@@ -305,6 +317,7 @@ def _training_worker(
         update_model()
         TrainerUtils.save_optimizer(trainer.optim, optim_save_dir)
         TrainerUtils.save_model(trainer.model, model_save_dir)
+        TrainerUtils.save_experience_pool(experience_pool, exp_save_dir)
 
         logger.info(
             colorize("训练进程: ", PROCESSING_COLOR)
@@ -326,6 +339,8 @@ class AlphaZeroTrainer:
         self.game = game_cls()
         self.optim = OPTIMIZER(self.model.parameters(), lr=LEARNING_RATE)
         self.experience_pool = AlphaZeroTrainer._create_experience_pool(game_cls)
+
+        TrainerUtils.set_game_cls(game_cls)  # 设置游戏类以确定保存目录
 
         (
             self._model_save_dir,
@@ -494,9 +509,10 @@ class AlphaZeroTrainer:
             return SharedRingBufferExperiencePool(
                 state_shape=nn_state_shape,
                 num_action=(1, num_action),
+                _game_cls=game_cls,
                 _capacity=DEFAULT_CAPACITY,
             )
-        return ExperiencePool(capacity=DEFAULT_CAPACITY)
+        return ExperiencePool(_game_cls=game_cls, capacity=DEFAULT_CAPACITY)
 
     @staticmethod
     def _infer_nn_state_shape(game_cls: Type[BaseGame]) -> ShapeType:

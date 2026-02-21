@@ -8,6 +8,7 @@
 
 from games.base import BaseGame
 from config import *
+from utils.data_enhancer import DataEnhancer
 
 
 class TemplateGame(BaseGame):
@@ -92,6 +93,24 @@ class TemplateGame(BaseGame):
     #     Returns:
     #         float: 从当前玩家视角的评估值 (1.0=获胜, 0.0=平局, -1.0=失败)
     #     """
+
+    # 可选方法：数据增强，对于特殊的游戏，如果需要自定义的数据增强逻辑，可以重写此方法
+    # @staticmethod
+    # def get_enhanced_data(state: NNState, policy: TensorActions, value: TensorValue) -> list[ExperienceDate]:
+    #     """数据增强方法，默认使用DataEnhancer提供的增强方法，
+    #     你可以在子类重写该方法以实现自定义的数据增强逻辑，但请
+    #     确保返回的数据格式与原方法一致(框架会根据配置中的增强
+    #     决定是否选项调用该方法,在此仅需实现增强逻辑，无需判断是否启用增强)
+
+    #     Args:
+    #         state (NNState): 神经网络的输入状态,注意区分是否包含历史状态
+    #         policy (TensorActions): 输入的策略
+    #         value (TensorValue): 输入的价值
+
+    #     Returns:
+    #         list[ExperienceDate]: 增强后的状态、策略和价值
+    #     """
+    #     return DataEnhancer.get_enhance_data(state, policy, value)
 
     @staticmethod
     def _get_winner(state: TensorGameState) -> int | None:

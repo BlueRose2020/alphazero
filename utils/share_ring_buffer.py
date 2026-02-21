@@ -3,6 +3,8 @@ from dataclasses import dataclass, field, InitVar
 import os
 from typing import Optional, TYPE_CHECKING, cast
 
+from games.base import BaseGame
+
 if TYPE_CHECKING:
     from multiprocessing.sharedctypes import SynchronizedBase
     from multiprocessing.synchronize import Lock as MpLock, Condition as MpCondition
@@ -12,7 +14,6 @@ import time
 import torch
 import torch.multiprocessing as mp
 from utils.logger import setup_logger, colorize
-from utils.data_enhancer import DataEnhancer
 
 logger = setup_logger(__name__, rate_limit=5.0)  # 相同消息每5秒最多输出一次
 
@@ -21,6 +22,7 @@ logger = setup_logger(__name__, rate_limit=5.0)  # 相同消息每5秒最多输�
 class SharedRingBufferExperiencePool:
     state_shape: InitVar[ShapeType]
     num_action: InitVar[ShapeType]
+    _game_cls: type[BaseGame]
 
     _capacity: int = DEFAULT_CAPACITY
     _states: torch.Tensor = field(init=False)
@@ -117,7 +119,7 @@ class SharedRingBufferExperiencePool:
     def put_tupule_experience(self, experience: ExperienceDate) -> bool:
         state, prior, value = experience
         if USE_DATA_ENHANCEMENT:
-            enhanced_data = DataEnhancer.get_enhance_data(state, prior, value)
+            enhanced_data = self._game_cls.get_enhanced_data(state, prior, value)
             for exp in enhanced_data:
                 self.put(*exp)
             return True

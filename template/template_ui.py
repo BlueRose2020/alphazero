@@ -58,7 +58,7 @@ class TemplateAPP(BaseApp):
     def __init__(self) -> None:
         """初始化 UI，替换为你的游戏类并可设置窗口标题。"""
         # TODO: 替换为你的游戏类
-        # super().__init__(YourGame, model, ai_config, caption="Your Game")
+        # super().__init__(YourGame, model, ai_config, caption="Your Game", theme=UITheme.your_theme)
         raise NotImplementedError
 
     def create_board_view(self) -> BoardView:

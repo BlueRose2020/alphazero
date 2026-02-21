@@ -41,8 +41,8 @@ class Trainer:
             loss.backward()
             self.optim.step()
         except ValueError as e:
-            logger.warning(f"跳过训练步骤: {e}")
-            return
+            logger.error(f"训练出错,退出进程: {e}")
+            exit(1)
 
     def _calculate_loss(self, batch_size: int = BATCH_SIZE) -> torch.Tensor:
         """计算损失函数

@@ -20,14 +20,21 @@ TensorActions: TypeAlias = "torch.Tensor"
 TensorGameState: TypeAlias = "torch.Tensor"
 """不包含批次维度"""
 NNState: TypeAlias = "torch.Tensor"
-"""shape = (1,HISTORY_LEN+1,*state_shape)或
+"""
+二维:
+shape = (1,HISTORY_LEN+1,*state_shape)或
 shape = (1,2,*state_shape)，其中HISTORY_LEN为
-历史状态数量，state_shape为游戏状态的空间维度
-2表示当前状态和当前玩家的标识（如1或-1）两个通道
-用于神经网络
+三维:
+shape = (1,HISTORY_LEN*state_shape[0]+1,*state_shape[1:])或
+shape = (1,state_shape[0]+1,*state_shape[1:])，其中HISTORY_LEN为
 """
 StateWithHistory: TypeAlias = "torch.Tensor"
-"""shape = (HISTORY_LEN,*state_shape)"""
+"""
+二维:
+shape = (HISTORY_LEN,*state_shape)
+三维:
+shape = (HISTORY_LEN * state_shape[0],*state_shape[1:])
+"""
 
 GameDone: TypeAlias = bool | int
 HistoryDeque: TypeAlias = collections.deque[TensorGameState]

@@ -4,7 +4,7 @@ _DEVICE = "auto"  # 仅影响训练过程使用的设备，即只影响train.py�
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 _OPTIMIZER = "Adam"  # 可选的优化器，默认为Adam，支持PyTorch中所有优化器，需与torch.optim中的类名一致
-TRAIN_NUM_SIMULATION = 150 # 每个样本进行多少次蒙特卡洛树搜索模拟，模拟越多训练越慢但效果越好
+TRAIN_NUM_SIMULATION = 1600 # 每个样本进行多少次蒙特卡洛树搜索模拟，模拟越多训练越慢但效果越好
 
 # 训练过程中温度参数的设置，控制探索程度
 START_TEMPERATURE = 1.0
@@ -21,7 +21,7 @@ _SEED_BIAS = "random"
 NUM_SELF_PLAY_GAMES = 300  # 总共需要进行的自对弈场数
 SELF_PLAY_UPDATE_MODEL_FREQUENCY = 5  # 每多少轮自对弈后更新一次模型(单个进程)
 TRAIN_UPDATE_MODEL_FREQUENCY = 300  # 每多少轮训练后更新一次模型(单个进程)
-MODEL_SAVE_FREQUENCY = 2000  # 每多少轮训练自动保存一次模型状态
+MODEL_SAVE_FREQUENCY = 5000  # 每多少轮训练自动保存一次模型状态
 EXP_SAVE_FREQUENCY = 10 * 60  # 间隔多长时间（秒）保存一次经验池状态
 MIN_EXP_SIZE_FOR_TRAINING = 500
 # 训练前经验池中至少需要的样本数量,必须小于经验池容量

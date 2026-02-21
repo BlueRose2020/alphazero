@@ -111,6 +111,7 @@ class MCTS:
         self.game_cls = game_cls
         if USE_HISTORY:
             from utils.history_manager import HistoryManager
+
             self.history_manager = HistoryManager(game_cls)
 
     def search(
@@ -140,7 +141,7 @@ class MCTS:
                     )  # 始终保持历史的最新状态与当前状态相同
             # 扩展+评估（alphazero这两步是合在一起的）
             if node.is_terminal():
-                value = self.game_cls.terminal_evaluation(node.state,node.player)
+                value = self.game_cls.terminal_evaluation(node.state, node.player)
             else:
                 nn_state = self._node2nn_state(node)
                 with torch.no_grad():
@@ -159,6 +160,7 @@ class MCTS:
         final_prior = torch.zeros_like(cast(torch.Tensor, root_node.prior))
         for action, child in root_node.children.items():
             final_prior[0, action] = child.visits
+        # logger.debug(f"root_value: {root_node.value}")
         return final_prior / final_prior.sum()
 
     def _get_prior(
@@ -184,7 +186,7 @@ class MCTS:
             current = current.parent
 
     def _node2nn_state(self, node: MCTSNode) -> NNState:
-        player_channel = torch.full((1,*node.state.shape), node.player)
+        player_channel = self.game_cls.get_player_channel(node.state, node.player)
         if USE_HISTORY:
             history_state = self.history_manager.get_state()
             state = torch.cat((history_state, player_channel), dim=0)

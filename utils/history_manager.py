@@ -13,6 +13,7 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
 @dataclass
 class HistoryManager:
     game_cls: InitVar[type[BaseGame]]
@@ -39,12 +40,20 @@ class HistoryManager:
 
     def get_state(self) -> StateWithHistory:
         states = [s for s in self._history]
-        state = torch.stack(states, dim=0)
+        if len(states[0].shape) == 2:
+            state = torch.stack(states, dim=0)
+        else:
+            state = torch.cat(states, dim=0)
         return state.detach().clone()
 
-    def get_deque(self) -> HistoryDeque:
-        return collections.deque(s.clone() for s in self._history)
-
     def load(self, history_state: StateWithHistory) -> None:
-        for s in history_state:
-            self._history.append(s.clone())
+        self._history.clear()
+        if len(self._state_shape) == 2:
+            for i in range(HISTORY_LEN):
+                self._history.append(history_state[i].clone())
+        else:
+            shape_0 = self._state_shape[0]
+            for i in range(HISTORY_LEN):
+                start = i * shape_0
+                end = start + shape_0
+                self._history.append(history_state[start:end].clone())

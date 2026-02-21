@@ -66,11 +66,13 @@ class QuickModel(BaseModel):
 
     def __init__(self) -> None:
         super().__init__()
-        if USE_HISTORY:
-            self.in_channels = GAME_STATE_DIM[0] * HISTORY_LEN + 1
+        if len(GAME_STATE_DIM) == 2:
+            self.in_channels = HISTORY_LEN + 1 if USE_HISTORY else 2
         else:
-            self.in_channels = GAME_STATE_DIM[0] + 1
+            self.in_channels = GAME_STATE_DIM[0]*HISTORY_LEN + 1 if USE_HISTORY else GAME_STATE_DIM[0] 
 
+        self.nn_state_shape = (self.in_channels, *GAME_STATE_DIM[1:]) if len(GAME_STATE_DIM) == 3 else (self.in_channels, *GAME_STATE_DIM)
+        self.in_channels = self.nn_state_shape[0]
         self.layers_dict: dict[str, list[nn.Module]] = {
             "shared_layers": [],
             "policy_head": [],
@@ -345,7 +347,7 @@ class QuickModel(BaseModel):
         """获取共享层输出的特征图尺寸，供后续头部层构建时使用"""
         # 计算卷积层对特征图尺寸的影响
         model = self.layers_dict["shared_layers"]
-        input_ = torch.zeros((1, self.in_channels, *GAME_STATE_DIM[1:]))  # 模拟输入
+        input_ = torch.zeros((1, self.in_channels, *self.nn_state_shape[1:]))  # 模拟输入
         with torch.no_grad():
             for layer in model:
                 input_ = layer(input_)

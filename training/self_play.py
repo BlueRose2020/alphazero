@@ -28,7 +28,7 @@ class ChessArena:
             # 获取状态
             state = self.game.get_state()
             player = self.game.get_player()
-            player_channel = torch.full((1, *state.shape), player)
+            player_channel = type(self.game).get_player_channel(state, player)
 
             # 搜索
             if USE_HISTORY:
@@ -45,7 +45,12 @@ class ChessArena:
                 )
             else:
                 prior = self.mcts.search(self.model, state, player)
-                nn_state = torch.cat((state.unsqueeze(0), player_channel), dim=0).unsqueeze(0)
+                if state.shape[0] == 2:
+                    nn_state = torch.cat(
+                        (state.unsqueeze(0), player_channel), dim=0
+                    ).unsqueeze(0)
+                else:
+                    nn_state = torch.cat((state, player_channel), dim=0).unsqueeze(0)
 
             # 执行动作
             prior_with_tao = torch.pow(prior, 1 / tao)
@@ -56,7 +61,9 @@ class ChessArena:
 
         logger.info(f"完成一轮自对弈，轨迹长度: {len(traj)}")
         # 加入经验池
-        result = self.game.evaluation() # 这是下一步棋局的结果，不是nn_state对应的结果，所以需要根据玩家视角进行调整
+        result = (
+            self.game.evaluation()
+        )  # 这是下一步棋局的结果，不是nn_state对应的结果，所以需要根据玩家视角进行调整
         result = result if self.game.get_player() == player else -result
         self._generate_experience_date(traj, result, experience_pool)
 

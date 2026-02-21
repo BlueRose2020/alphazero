@@ -4,6 +4,7 @@
 
 - 井字棋：见 [examples/tictactoe/](examples/tictactoe/)
 - 五子棋：见 [examples/gomoku/](examples/gomoku/)
+- 点格棋：见 [examples/dots_and_boxes/](examples/dots_and_boxes/)
 
 每个示例目录通常包含：
 

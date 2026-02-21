@@ -1,6 +1,6 @@
 from __future__ import annotations
 from config import *
-from typing import Tuple
+from utils.data_enhancer import DataEnhancer
 
 if USE_HISTORY:
     from utils.history_manager import HistoryManager
@@ -112,6 +112,29 @@ class BaseGame:
         if winner == -player:
             return -1.0
         return 0.0
+
+    @staticmethod
+    def get_player_channel(state: TensorGameState, player: int) -> torch.Tensor:
+        if len(state.shape) == 2:
+            return torch.full((1, *state.shape), player)
+        else:
+            return torch.full((1, *state.shape[1:]), player)
+
+    @staticmethod
+    def get_enhanced_data(state: NNState, policy: TensorActions, value: TensorValue) -> list[ExperienceDate]:
+        """数据增强方法，默认使用DataEnhancer提供的增强方法，
+        你可以在子类重写该方法以实现自定义的数据增强逻辑，但请
+        确保返回的数据格式与原方法一致
+
+        Args:
+            state (NNState): 输入的状态
+            policy (TensorActions): 输入的策略
+            value (TensorValue): 输入的价值
+
+        Returns:
+            list[ExperienceDate]: 增强后的状态、策略和价值
+        """
+        return DataEnhancer.get_enhance_data(state, policy, value)
 
     @staticmethod
     def _get_winner(state: TensorGameState) -> int | None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from examples import TicTacToeGame, TicTacToeModel  # 替换为你的游戏和模型
 from examples import GomokuGame, GomokuModel  # 替换为你的游戏和模型
+from examples import DotsAndBoxesGame, DotsAndBoxesModel  # 替换为你的游戏和模型
 
 from nn_models.quick_model import (
     QuickModel,
@@ -16,11 +17,13 @@ logger = setup_logger(__name__)
 
 def main() -> None:
     alphazero_trainer = AlphaZeroTrainer(
-        # model_cls=QuickModel,  # 替换为你的模型类
+        model_cls=QuickModel,  # 记得修改配置
         # model_cls=TicTacToeModel,  # 替换为你的模型类
         # game_cls=TicTacToeGame,  # 替换为你的游戏类
-        model_cls=GomokuModel,  # 替换为你的模型类
-        game_cls=GomokuGame,  # 替换为你的游戏类
+        # model_cls=GomokuModel,  # 替换为你的模型类
+        # game_cls=GomokuGame,  # 替换为你的游戏类
+        # model_cls=DotsAndBoxesModel,  # 替换为你的模型类
+        game_cls=DotsAndBoxesGame,  # 替换为你的游戏类
     )
 
     alphazero_trainer.train()

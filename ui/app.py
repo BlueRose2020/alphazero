@@ -24,6 +24,8 @@ class AIConfig:
     mcts_simulations: InitVar[int] = 800
     simulations: int = field(init=False, default=800)
 
+    use_dirichlet: bool = False  # 是否在MCTS中使用Dirichlet噪声来增加探索
+
     def __post_init__(self, mcts_simulations: int) -> None:
         if self.use_mcts:
             object.__setattr__(self, "simulations", mcts_simulations)
@@ -58,6 +60,7 @@ class BaseApp:
             if ai_config.use_mcts:
                 self.mcts = MCTS(game_cls=game_cls)
                 self.mcts_simulations = ai_config.simulations
+                self.use_dirichlet = ai_config.use_dirichlet
 
         pg.init()
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -99,13 +102,15 @@ class BaseApp:
                 history_state=self._history_state(),
                 num_simulation=self.mcts_simulations,
                 c_puct=C_PUCT,
-                use_Dirichlet=False,
+                use_Dirichlet=self.use_dirichlet,
             )
 
             return int(prior.argmax(dim=1).item())
         else:
             state = self._state()
-            player_channel = torch.full((1, *state.shape), self.game.get_player())
+            player_channel = self.game_cls.get_player_channel(
+                state, self.game.get_player()
+            )
 
             if USE_HISTORY:
                 history_state = self._history_state()
@@ -119,7 +124,9 @@ class BaseApp:
                     (state.unsqueeze(0), player_channel), dim=0
                 ).unsqueeze(0)
 
-            policy = self.model(model_input)[0].squeeze(0)
+            policy, value = self.model(model_input)
+            policy = policy.squeeze(0)
+            logger.debug(f"value: {value.item()}")
             legal_mask = self.game.get_legal_mask().squeeze(0)
             masked_policy = policy.masked_fill(legal_mask == 0, float("-inf"))
             return int(masked_policy.argmax().item())
