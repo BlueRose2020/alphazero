@@ -223,6 +223,7 @@ def _self_player_worker(
 
 def _training_worker(
     model_cls: Type[BaseModel],
+    game_cls: Type[BaseGame],
     experience_pool: ExperiencePoolType,
     self_play_done: Any,  # 自对弈完成标志
     model_state: dict[str, torch.Tensor],
@@ -232,6 +233,7 @@ def _training_worker(
         import time
 
         torch.set_num_threads(1)
+        TrainerUtils.set_game_cls(game_cls)
         model = model_cls()
         TrainerUtils.sync_model_from_shared(model, model_state, model_lock)
 
@@ -430,6 +432,7 @@ class AlphaZeroTrainer:
             target=_training_worker,
             args=(
                 type(self.model),
+                type(self.game),
                 self.experience_pool,
                 self_play_done,
                 model_state,

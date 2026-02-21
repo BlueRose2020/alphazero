@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 
 
 class DotsAndBoxesModel(BaseModel):
-    """简单 3D CNN 双头模型
+    """简单 2D CNN 双头模型
 
     输入维度:
         (batch, HISTORY_LEN+1, C, H, W) 或 (batch, 2, C, H, W)
