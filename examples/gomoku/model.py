@@ -17,9 +17,13 @@ class ResidualBlock(nn.Module):
     def __init__(self, channels: int) -> None:
         super().__init__()
 
-        self._conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self._conv1 = nn.Conv2d(
+            channels, channels, kernel_size=3, padding=1, bias=False
+        )
         self._bn1 = nn.BatchNorm2d(channels)
-        self._conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self._conv2 = nn.Conv2d(
+            channels, channels, kernel_size=3, padding=1, bias=False
+        )
         self._bn2 = nn.BatchNorm2d(channels)
         self._relu = nn.ReLU()
 
@@ -43,8 +47,8 @@ class GomokuModel(BaseModel):
         in_channels = HISTORY_LEN + 1 if USE_HISTORY else 2
         board_size = 15
 
-        channels = 128
-        blocks = 6
+        channels = 64
+        blocks = 2
 
         # 共享特征提取层（AlphaZero 风格）
         self._shared_layers = nn.Sequential(
@@ -56,22 +60,22 @@ class GomokuModel(BaseModel):
 
         # 策略头
         self._policy_head = nn.Sequential(
-            nn.Conv2d(channels, 2, kernel_size=1, bias=False),
-            nn.BatchNorm2d(2),
-            nn.ReLU(),
-            nn.Flatten(1),
-            nn.Linear(2 * board_size * board_size, board_size * board_size),
-        )
-
-        # 价值头
-        self._value_head = nn.Sequential(
             nn.Conv2d(channels, 1, kernel_size=1, bias=False),
             nn.BatchNorm2d(1),
             nn.ReLU(),
             nn.Flatten(1),
-            nn.Linear(board_size * board_size, 128),
+            nn.Linear(board_size * board_size, board_size * board_size),
+        )
+
+        # 价值头
+        self._value_head = nn.Sequential(
+            nn.Conv2d(channels, 2, kernel_size=1, bias=False),
+            nn.BatchNorm2d(2),
             nn.ReLU(),
-            nn.Linear(128, 1),
+            nn.Flatten(1),
+            nn.Linear(2 * board_size * board_size, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
             nn.Tanh(),
         )
 

@@ -20,10 +20,10 @@ def main() -> None:
         # model_cls=QuickModel,  # 记得修改配置
         # model_cls=TicTacToeModel,  # 替换为你的模型类
         # game_cls=TicTacToeGame,  # 替换为你的游戏类
-        model_cls=GomokuModel,  # 替换为你的模型类
-        game_cls=GomokuGame,  # 替换为你的游戏类
-        # model_cls=DotsAndBoxesModel,  # 替换为你的模型类
-        # game_cls=DotsAndBoxesGame,  # 替换为你的游戏类
+        model_cls=DotsAndBoxesModel,  # 替换为你的模型类
+        game_cls=DotsAndBoxesGame,  # 替换为你的游戏类
+        # model_cls=GomokuModel,  # 替换为你的模型类
+        # game_cls=GomokuGame,  # 替换为你的游戏类
     )
 
     alphazero_trainer.train()

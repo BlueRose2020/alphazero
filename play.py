@@ -30,21 +30,20 @@ def main() -> None:
     # - use_dirichlet: 是否在MCTS中使用Dirichlet噪声来增加开局的多样性(可能会导致AI偶尔做出较差的决策，但能增加游戏的趣味性和不可预测性)
     ai_config = AIConfig(
         play_with_ai=True,
-        ai_player=None,
+        ai_player=PLAYER1,
         use_mcts=True,
-        mcts_simulations=160,
+        mcts_simulations=300,
         use_dirichlet=False,
+        use_virtual_loss=True,
     )
 
-    # 替换为你的模型类，设备为DEVICE（由配置文件配置）
+    # 替换为你的模型类和ui类，设备为DEVICE（由配置文件配置，默认会自动选择cuda/cpu）
     # model = QuickModel()
-    model = TicTacToeModel()
+    # model = TicTacToeModel()
+    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
+    model = DotsAndBoxesModel()
+    ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
     # model = GomokuModel()
-    # model = DotsAndBoxesModel()
-
-    # 替换为你的UI类
-    ui = TicTacToeAPP(model=model, ai_config=ai_config)
-    # ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
     # ui = GomokuAPP(model=model, ai_config=ai_config)
 
     # 根据模型类名和是否使用历史状态来自动加载训练好的模型权重文件，无需修改
