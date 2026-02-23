@@ -144,9 +144,9 @@ class MCTS:
                 value = self.game_cls.terminal_evaluation(node.state, node.player)
             else:
                 nn_state = self._node2nn_state(node)
-                with torch.no_grad():
+                with torch.inference_mode():
                     policy, value = model(nn_state)
-                mask = self.game_cls.legal_action_mask(node.state)
+                mask = self.game_cls.legal_action_mask(node.state).to(DEVICE)
 
                 prior = self._get_prior(
                     policy, mask, node is root_node and use_Dirichlet
@@ -192,4 +192,4 @@ class MCTS:
             state = torch.cat((history_state, player_channel), dim=0)
         else:
             state = torch.cat((node.state.unsqueeze(0), player_channel), dim=0)
-        return state.unsqueeze(0).detach().clone()
+        return state.unsqueeze(0).detach().clone().to(DEVICE)

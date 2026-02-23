@@ -43,7 +43,8 @@ class BaseApp:
         self.game_cls = game_cls
         self.game = game_cls()
 
-        self.model = model
+        self.model = model.to(DEVICE)
+        self.model.eval()
 
         self.theme = theme or UITheme.default()
         self.clock = pg.time.Clock()
@@ -124,8 +125,10 @@ class BaseApp:
                     (state.unsqueeze(0), player_channel), dim=0
                 ).unsqueeze(0)
 
+            model_input = model_input.to(DEVICE)
             policy, value = self.model(model_input)
-            policy = policy.squeeze(0)
+            policy = policy.squeeze(0).detach().cpu()
+            value = value.detach().cpu()
             logger.debug(f"value: {value.item()}")
             legal_mask = self.game.get_legal_mask().squeeze(0)
             masked_policy = policy.masked_fill(legal_mask == 0, float("-inf"))

@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Type, TYPE_CHECKING, cast, Any
 
+import torch
+
 if TYPE_CHECKING:
     from games.base import BaseGame
     from nn_models.base import BaseModel
@@ -14,7 +16,8 @@ logger = setup_logger(__name__)
 
 class ChessArena:
     def __init__(self, model_cls: Type[BaseModel], game_cls: Type[BaseGame]) -> None:
-        self.model = model_cls()
+        self.model = model_cls().to(DEVICE)
+        self.model.eval()
         self.game = game_cls()
         self.mcts = MCTS(game_cls=game_cls)
 
@@ -40,24 +43,38 @@ class ChessArena:
                     player,
                     history_state=history_state,
                 )
-                nn_state = torch.cat((history_state, player_channel), dim=0).unsqueeze(
-                    0
+                nn_state = (
+                    torch.cat((history_state, player_channel), dim=0)
+                    .unsqueeze(0)
+                    .to(DEVICE)
                 )
             else:
                 prior = self.mcts.search(self.model, state, player)
                 if state.shape[0] == 2:
-                    nn_state = torch.cat(
-                        (state.unsqueeze(0), player_channel), dim=0
-                    ).unsqueeze(0)
+                    nn_state = (
+                        torch.cat((state.unsqueeze(0), player_channel), dim=0)
+                        .unsqueeze(0)
+                        .to(DEVICE)
+                    )
                 else:
-                    nn_state = torch.cat((state, player_channel), dim=0).unsqueeze(0)
+                    nn_state = (
+                        torch.cat((state, player_channel), dim=0)
+                        .unsqueeze(0)
+                        .to(DEVICE)
+                    )
 
             # 执行动作
             prior_with_tao = torch.pow(prior, 1 / tao)
             action = cast(int, torch.multinomial(prior_with_tao, num_samples=1).item())
             done = self.game.step(action)
 
-            traj.append((nn_state, prior, player))
+            traj.append(
+                (
+                    nn_state.detach().cpu(),
+                    prior.detach().cpu(),
+                    player,
+                )
+            )
 
         logger.info(f"完成一轮自对弈，轨迹长度: {len(traj)}")
         # 加入经验池

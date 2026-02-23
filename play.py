@@ -31,20 +31,20 @@ def main() -> None:
     ai_config = AIConfig(
         play_with_ai=True,
         ai_player=None,
-        use_mcts=False,
-        mcts_simulations=400,
+        use_mcts=True,
+        mcts_simulations=160,
         use_dirichlet=False,
     )
 
-    # 替换为你的模型类，设备你可以自行指定而无须是DEVICE
-    model = QuickModel().to(device=DEVICE)
-    # model = TicTacToeModel().to(device=DEVICE)
-    # model = GomokuModel().to(device=DEVICE)
-    # model = DotsAndBoxesModel().to(device=DEVICE)
+    # 替换为你的模型类，设备为DEVICE（由配置文件配置）
+    # model = QuickModel()
+    model = TicTacToeModel()
+    # model = GomokuModel()
+    # model = DotsAndBoxesModel()
 
     # 替换为你的UI类
-    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
-    ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
+    ui = TicTacToeAPP(model=model, ai_config=ai_config)
+    # ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
     # ui = GomokuAPP(model=model, ai_config=ai_config)
 
     # 根据模型类名和是否使用历史状态来自动加载训练好的模型权重文件，无需修改
