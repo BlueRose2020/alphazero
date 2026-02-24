@@ -26,6 +26,7 @@ class AIConfig:
     simulations: int = field(init=False, default=800)
 
     use_dirichlet: bool = False  # 是否在MCTS中使用Dirichlet噪声来增加探索
+    use_virtual_loss: bool = False 
 
     def __post_init__(self, mcts_simulations: int) -> None:
         if self.use_mcts:
@@ -64,6 +65,7 @@ class BaseApp:
                 self.mcts = MCTS(game_cls=game_cls)
                 self.mcts_simulations = ai_config.simulations
                 self.use_dirichlet = ai_config.use_dirichlet
+                self.use_virtual_loss = ai_config.use_virtual_loss
 
         pg.init()
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -113,6 +115,7 @@ class BaseApp:
                 num_simulation=self.mcts_simulations,
                 c_puct=C_PUCT,
                 use_Dirichlet=self.use_dirichlet,
+                use_virtual_loss=self.use_virtual_loss,
             )
 
             return int(prior.argmax(dim=1).item())

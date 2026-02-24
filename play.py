@@ -34,9 +34,10 @@ def main() -> None:
         use_mcts=False,
         mcts_simulations=160,
         use_dirichlet=False,
+        use_virtual_loss=True,
     )
 
-    # 替换为你的模型类，设备为DEVICE（由配置文件配置）
+    # 替换为你的模型类和ui类，设备为DEVICE（由配置文件配置，默认会自动选择cuda/cpu）
     # model = QuickModel()
     # model = TicTacToeModel()
     # ui = TicTacToeAPP(model=model, ai_config=ai_config)
