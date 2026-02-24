@@ -15,8 +15,14 @@ logger = setup_logger(__name__)
 
 
 class ChessArena:
-    def __init__(self, model_cls: Type[BaseModel], game_cls: Type[BaseGame]) -> None:
-        self.model = model_cls().to(DEVICE)
+    def __init__(
+        self,
+        model_cls: Type[BaseModel],
+        game_cls: Type[BaseGame],
+        device: torch.device | None = None,
+    ) -> None:
+        self.device = device or torch.device(SELF_PLAY_DEVICE)
+        self.model = model_cls().to(self.device)
         self.model.eval()
         self.game = game_cls()
         self.mcts = MCTS(game_cls=game_cls)
@@ -46,7 +52,7 @@ class ChessArena:
                 nn_state = (
                     torch.cat((history_state, player_channel), dim=0)
                     .unsqueeze(0)
-                    .to(DEVICE)
+                    .to(self.device)
                 )
             else:
                 prior = self.mcts.search(self.model, state, player)
@@ -54,13 +60,13 @@ class ChessArena:
                     nn_state = (
                         torch.cat((state.unsqueeze(0), player_channel), dim=0)
                         .unsqueeze(0)
-                        .to(DEVICE)
+                        .to(self.device)
                     )
                 else:
                     nn_state = (
                         torch.cat((state, player_channel), dim=0)
                         .unsqueeze(0)
-                        .to(DEVICE)
+                        .to(self.device)
                     )
 
             # 执行动作
@@ -76,12 +82,12 @@ class ChessArena:
                 )
             )
 
-        logger.info(f"完成一轮自对弈，轨迹长度: {len(traj)}")
         # 加入经验池
         result = (
             self.game.evaluation()
         )  # 这是下一步棋局的结果，不是nn_state对应的结果，所以需要根据玩家视角进行调整
         result = result if self.game.get_player() == player else -result
+        logger.info(f"完成一轮自对弈，轨迹长度: {len(traj)}，结果: {result}，玩家视角: {player}")
         self._generate_experience_date(traj, result, experience_pool)
 
     def load_model(self, file_path: str) -> None:

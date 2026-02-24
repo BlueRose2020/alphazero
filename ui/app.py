@@ -1,4 +1,5 @@
 import pygame as pg
+import torch
 
 from dataclasses import dataclass, InitVar, field
 from typing import Optional
@@ -43,7 +44,8 @@ class BaseApp:
         self.game_cls = game_cls
         self.game = game_cls()
 
-        self.model = model.to(DEVICE)
+        self.device = self._get_model_device(model)
+        self.model = model.to(self.device)
         self.model.eval()
 
         self.theme = theme or UITheme.default()
@@ -69,6 +71,13 @@ class BaseApp:
             pg.display.set_caption(caption)
         else:
             pg.display.set_caption(game_cls.__name__)
+
+    @staticmethod
+    def _get_model_device(model: BaseModel) -> torch.device:
+        try:
+            return next(model.parameters()).device
+        except StopIteration:
+            return torch.device("cpu")
 
     def create_board_view(self) -> BoardView:
         """创建棋盘视图，子类必须实现。"""
@@ -125,7 +134,7 @@ class BaseApp:
                     (state.unsqueeze(0), player_channel), dim=0
                 ).unsqueeze(0)
 
-            model_input = model_input.to(DEVICE)
+            model_input = model_input.to(self.device)
             policy, value = self.model(model_input)
             policy = policy.squeeze(0).detach().cpu()
             value = value.detach().cpu()

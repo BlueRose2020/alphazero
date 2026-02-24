@@ -1,10 +1,15 @@
 """训练参数"""
-
-_DEVICE = "auto"  # 仅影响训练过程使用的设备，即只影响train.py的行为
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 _OPTIMIZER = "Adam"  # 可选的优化器，默认为Adam，支持PyTorch中所有优化器，需与torch.optim中的类名一致
-TRAIN_NUM_SIMULATION = 160 # 每个样本进行多少次蒙特卡洛树搜索模拟，模拟越多训练越慢但效果越好
+TRAIN_NUM_SIMULATION = 20 # 每个样本进行多少次蒙特卡洛树搜索模拟，模拟越多训练越慢但效果越好
+
+# 设备配置
+# TRAIN_DEVICE: "auto" | "cuda" | "cpu"
+# SELF_PLAY_DEVICE: 建议固定为 "cpu" 以避免占用 GPU 显存
+TRAIN_DEVICE = "auto"
+SELF_PLAY_DEVICE = "cpu" 
+# 对于ui界面，会根据传入模型的设备自动选择自对弈设备
 
 # 训练过程中温度参数的设置，控制探索程度
 START_TEMPERATURE = 1.0
@@ -18,7 +23,7 @@ _SEED_BIAS = "random"
 # 多进程时每个进程随机数种子的偏移量，确保不同进程使用不同的随机数序列
 # 默认为 "random"，会在每次运行时随机生成一个偏移量，范围为0到10000
 # 你也可以设置为一个固定的整数，以确保每次运行使用相同
-NUM_SELF_PLAY_GAMES = 500  # 总共需要进行的自对弈场数
+NUM_SELF_PLAY_GAMES = 1000  # 总共需要进行的自对弈场数
 SELF_PLAY_UPDATE_MODEL_FREQUENCY = 5  # 每多少轮自对弈后更新一次模型(单个进程)
 TRAIN_UPDATE_MODEL_FREQUENCY = 300  # 每多少轮训练后更新一次模型(单个进程)
 MODEL_SAVE_FREQUENCY = 1000  # 每多少轮训练自动保存一次模型状态
@@ -27,7 +32,7 @@ MIN_EXP_SIZE_FOR_TRAINING = 500
 # 训练前经验池中至少需要的样本数量,必须小于经验池容量
 # 单进程模式下每固定轮数自对弈后进行一次训练，故无需设置此参数
 
-_SELF_PLAY_WORKER_NUM = "auto"
+_SELF_PLAY_WORKER_NUM = 25
 # 自对弈进程数量，默认为 "auto"，会自动设置为CPU核心数减2
 # (一个进程用于训练，另一个进程用于避免死机，当自对弈数量少
 # 于CPU核心数时，会自动设置为自对弈数量）
@@ -46,24 +51,34 @@ TRAIN_EPOCHS = 50  # 单进程模式下每次训练的轮数
 # ====================================================================
 
 """训练参数"""
-import torch
+import warnings
+from typing import TYPE_CHECKING, Type
 
-if _DEVICE == "auto":
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-elif _DEVICE == "cuda":
-    if torch.cuda.is_available():
-        DEVICE = torch.device("cuda")
-    else:
-        raise ValueError("未找到可用的CUDA设备，请检查你的环境配置")
-elif _DEVICE == "cpu":
-    DEVICE = torch.device("cpu")
-else:
-    raise ValueError(f"无效的DEVICE配置: {_DEVICE}，请使用 'auto', 'cuda' 或 'cpu'")
+OPTIMIZER_NAME = _OPTIMIZER
+
+if TYPE_CHECKING:
+    from torch.optim import Optimizer
 
 
-from torch.optim import Adafactor,Adadelta,Adagrad,Adam,Adamax,AdamW,ASGD,LBFGS,lr_scheduler,Muon,NAdam,Optimizer,RAdam,RMSprop,Rprop,SGD,SparseAdam,swa_utils
-optim_dir = {cls.__name__: cls for cls in [Adafactor,Adadelta,Adagrad,Adam,Adamax,AdamW,ASGD,LBFGS,lr_scheduler,Muon,NAdam,Optimizer,RAdam,RMSprop,Rprop,SGD,SparseAdam,swa_utils]}
-OPTIMIZER = optim_dir.get(_OPTIMIZER, Adam)
+def get_optimizer_class(name: str | None = None) -> Type["Optimizer"]:
+    """延迟解析优化器类，避免在导入配置时提前加载 torch"""
+    import torch.optim as optim
+
+    resolved_name = (name or OPTIMIZER_NAME).strip()
+    optim_cls = getattr(optim, resolved_name, None)
+    if callable(optim_cls):
+        return optim_cls
+    warnings.warn(
+        f"未找到名为 {resolved_name} 的优化器，已回退到 Adam",
+        RuntimeWarning,
+    )
+    return optim.Adam
+
+
+def create_optimizer(parameters, *, lr: float = LEARNING_RATE, name: str | None = None, **kwargs):
+    """根据配置创建优化器实例，仅在训练进程中导入 torch"""
+    optim_cls = get_optimizer_class(name)
+    return optim_cls(parameters, lr=lr, **kwargs)
 
 """多进程加速配置"""
 if _SEED_BIAS == "random":

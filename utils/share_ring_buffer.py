@@ -107,9 +107,9 @@ class SharedRingBufferExperiencePool:
                         return None
                     self._not_empty.wait(timeout=remaining)
             idx = self._read_idx.value  # type:ignore
-            state = self._states[idx].detach().clone()
-            prior = self._prior[idx].detach().clone()
-            value = self._values[idx].detach().clone()
+            state = self._states[idx].detach()
+            prior = self._prior[idx].detach()
+            value = self._values[idx].detach()
             self._read_idx.value = (idx + 1) % self._capacity  # type:ignore
             self._size.value -= 1  # type:ignore
             self._not_full.notify()

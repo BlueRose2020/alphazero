@@ -52,9 +52,9 @@ class ExperiencePool:
         batch = random.sample(self._date_deque, k)
         states, policies, values = zip(*batch)
 
-        states_tensor = torch.cat(states, dim=0).detach().clone()
-        policies_tensor = torch.cat(policies, dim=0).detach().clone()
-        values_tensor = torch.stack(values).detach().clone()
+        states_tensor = torch.cat(states, dim=0).detach()
+        policies_tensor = torch.cat(policies, dim=0).detach()
+        values_tensor = torch.stack(values).detach()
         return states_tensor, policies_tensor, values_tensor
 
     def size(self) -> int:

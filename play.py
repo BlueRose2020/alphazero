@@ -13,7 +13,7 @@ from nn_models.quick_model import QuickModel
 from ui.app import AIConfig
 import os
 import torch
-from config import DEVICE, PLAYER1, PLAYER2, USE_HISTORY
+from config import PLAYER1, PLAYER2, USE_HISTORY
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -31,21 +31,19 @@ def main() -> None:
     ai_config = AIConfig(
         play_with_ai=True,
         ai_player=None,
-        use_mcts=True,
+        use_mcts=False,
         mcts_simulations=160,
         use_dirichlet=False,
     )
 
     # 替换为你的模型类，设备为DEVICE（由配置文件配置）
     # model = QuickModel()
-    model = TicTacToeModel()
-    # model = GomokuModel()
+    # model = TicTacToeModel()
+    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
     # model = DotsAndBoxesModel()
-
-    # 替换为你的UI类
-    ui = TicTacToeAPP(model=model, ai_config=ai_config)
     # ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
-    # ui = GomokuAPP(model=model, ai_config=ai_config)
+    model = GomokuModel()
+    ui = GomokuAPP(model=model, ai_config=ai_config)
 
     # 根据模型类名和是否使用历史状态来自动加载训练好的模型权重文件，无需修改
     if model.__class__.__name__ == "QuickModel":

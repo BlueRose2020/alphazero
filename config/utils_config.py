@@ -19,7 +19,9 @@ FINISH_COLOR = "bright_magenta"  # 训练完成日志颜色
 # 你可以在此处添加更多日志类型的颜色配置，并在你的日志输出中使用这些颜色配置
 
 """经验池参数"""
-DEFAULT_CAPACITY = 50000
+DEFAULT_CAPACITY = 30000 
+# cuda版的torch库会占用更多内存
+# 可以根据实际调整该值
 
 """数据增强参数"""
 USE_DATA_ENHANCEMENT = True  # 是否启用数据增强

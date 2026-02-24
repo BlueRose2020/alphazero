@@ -11,7 +11,7 @@ import torch.multiprocessing as mp
 from config import *
 from games.base import BaseGame
 from nn_models.base import BaseModel
-from training.nn_trainer import Trainer
+from training.nn_trainer import Trainer, get_train_device
 from training.self_play import ChessArena
 from utils.experience_pool import ExperiencePool
 from utils.share_ring_buffer import SharedRingBufferExperiencePool
@@ -175,11 +175,11 @@ def _self_player_worker(
         seed = SEED_BIAS + worker_id
         random.seed(seed)
         torch.manual_seed(seed)
-        if torch.cuda.is_available():
+        if SELF_PLAY_DEVICE.startswith("cuda") and torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
         torch.set_num_threads(1)
-        arena = ChessArena(model_cls, game_cls)
+        arena = ChessArena(model_cls, game_cls, device=torch.device(SELF_PLAY_DEVICE))
         TrainerUtils.sync_model_from_shared(arena.model, model_state, model_lock)
 
         # 开始自对弈
@@ -232,12 +232,13 @@ def _training_worker(
     try:
         import time
 
-        torch.set_num_threads(1)
+        torch.set_num_threads(2)
         TrainerUtils.set_game_cls(game_cls)
-        model = model_cls()
+        train_device = get_train_device()
+        model = model_cls().to(train_device)
         TrainerUtils.sync_model_from_shared(model, model_state, model_lock)
 
-        optim = OPTIMIZER(model.parameters(), lr=LEARNING_RATE)
+        optim = create_optimizer(model.parameters(), lr=LEARNING_RATE)
         batch_size = BATCH_SIZE
 
         last_exp_save_time = time.time()
@@ -255,7 +256,7 @@ def _training_worker(
 
         TrainerUtils.load_optimizer_state(optim, optim_save_dir)
 
-        trainer = Trainer(model, experience_pool, optim)
+        trainer = Trainer(model, experience_pool, optim, device=train_device)
 
         # 定义一个函数来更新模型状态到共享内存，减小代码冗余
         def update_model() -> None:
@@ -337,9 +338,10 @@ class AlphaZeroTrainer:
         game_cls: Type[BaseGame],
     ) -> None:
         # 初始化模型、游戏和经验池
-        self.model = model_cls().to(device=DEVICE)
+        self.device = get_train_device()
+        self.model = model_cls().to(device=self.device)
         self.game = game_cls()
-        self.optim = OPTIMIZER(self.model.parameters(), lr=LEARNING_RATE)
+        self.optim = create_optimizer(self.model.parameters(), lr=LEARNING_RATE)
         self.experience_pool = AlphaZeroTrainer._create_experience_pool(game_cls)
 
         TrainerUtils.set_game_cls(game_cls)  # 设置游戏类以确定保存目录
@@ -360,9 +362,12 @@ class AlphaZeroTrainer:
             model=self.model,
             experience_pool=self.experience_pool,
             optim=self.optim,
+            device=self.device,
         )
 
-        self.arena = ChessArena(model_cls, game_cls)
+        self.arena = ChessArena(
+            model_cls, game_cls, device=torch.device(SELF_PLAY_DEVICE)
+        )
 
         # 输出日志
         logger.info("AlphaZero 训练器初始化完成")
@@ -398,7 +403,8 @@ class AlphaZeroTrainer:
             return
 
         model_state = {
-            k: v.clone().share_memory_() for k, v in self.model.state_dict().items()
+            k: v.detach().cpu().clone().share_memory_()
+            for k, v in self.model.state_dict().items()
         }
         model_lock = ctx.Lock()
         self_play_done = ctx.Value("b", False)
@@ -450,7 +456,8 @@ class AlphaZeroTrainer:
         trainer_process.join()
 
     def _single_process_self_play(self) -> None:
-        self.arena.model.load_state_dict(self.model.state_dict())
+        cpu_state = {k: v.detach().cpu() for k, v in self.model.state_dict().items()}
+        self.arena.model.load_state_dict(cpu_state)
         temp = START_TEMPERATURE
         for game_num in range(TRAIN_FREQUENCY):
             try:
@@ -489,7 +496,7 @@ class AlphaZeroTrainer:
             if input_str.lower() == "y":
                 logger.info("将覆盖之前的模型状态，使用随机初始化的模型进行训练")
 
-                self.model = type(self.model)()  # 重新初始化模型
+                self.model = type(self.model)().to(device=self.device)  # 重新初始化模型
             else:
                 logger.info("退出训练")
                 exit(0)

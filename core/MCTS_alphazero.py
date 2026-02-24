@@ -114,6 +114,13 @@ class MCTS:
 
             self.history_manager = HistoryManager(game_cls)
 
+    @staticmethod
+    def _get_model_device(model: nn.Module) -> torch.device:
+        try:
+            return next(model.parameters()).device
+        except StopIteration:
+            return torch.device("cpu")
+
     def search(
         self,
         model: nn.Module,
@@ -127,6 +134,7 @@ class MCTS:
         if history_state is None and USE_HISTORY:
             raise ValueError("使用历史信息时必须提供history_state参数")
 
+        device = self._get_model_device(model)
         root_node = MCTSNode(self.game_cls, root_state, root_player)
         for _ in range(num_simulation):
             node: MCTSNode = root_node
@@ -143,10 +151,10 @@ class MCTS:
             if node.is_terminal():
                 value = self.game_cls.terminal_evaluation(node.state, node.player)
             else:
-                nn_state = self._node2nn_state(node)
+                nn_state = self._node2nn_state(node, device)
                 with torch.inference_mode():
                     policy, value = model(nn_state)
-                mask = self.game_cls.legal_action_mask(node.state).to(DEVICE)
+                mask = self.game_cls.legal_action_mask(node.state).to(device)
 
                 prior = self._get_prior(
                     policy, mask, node is root_node and use_Dirichlet
@@ -185,11 +193,11 @@ class MCTS:
                 value = value if current.parent.player == current.player else -value
             current = current.parent
 
-    def _node2nn_state(self, node: MCTSNode) -> NNState:
+    def _node2nn_state(self, node: MCTSNode, device: torch.device) -> NNState:
         player_channel = self.game_cls.get_player_channel(node.state, node.player)
         if USE_HISTORY:
             history_state = self.history_manager.get_state()
             state = torch.cat((history_state, player_channel), dim=0)
         else:
             state = torch.cat((node.state.unsqueeze(0), player_channel), dim=0)
-        return state.unsqueeze(0).detach().clone().to(DEVICE)
+        return state.unsqueeze(0).detach().clone().to(device)

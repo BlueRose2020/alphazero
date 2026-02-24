@@ -1,11 +1,22 @@
 from config import *
 from nn_models.base import BaseModel
 import torch
-from torch.optim import Adafactor,Adadelta,Adagrad,Adam,Adamax,AdamW,ASGD,LBFGS,lr_scheduler,Muon,NAdam,Optimizer,RAdam,RMSprop,Rprop,SGD,SparseAdam,swa_utils
+from torch.optim import Optimizer
 from utils.logger import setup_logger, colorize
 from typing import Callable
 
 logger = setup_logger(__name__)
+
+
+def get_train_device() -> torch.device:
+    if TRAIN_DEVICE == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if TRAIN_DEVICE == "cuda":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        logger.warning("TRAIN_DEVICE 设置为 cuda，但当前不可用，已回退到 cpu")
+        return torch.device("cpu")
+    return torch.device("cpu")
 
 
 def _create_counter() -> Callable[[], int]:
@@ -28,8 +39,10 @@ class Trainer:
         model: BaseModel,
         experience_pool: ExperiencePoolType,
         optim: Optimizer,
+        device: torch.device | None = None,
     ) -> None:
-        self.model = model.to(DEVICE)
+        self.device = device or get_train_device()
+        self.model = model.to(self.device)
         self.experience_pool = experience_pool
         self.optim = optim
 
@@ -58,9 +71,9 @@ class Trainer:
         if batch is None:
             raise ValueError("经验池中没有足够的数据")
         states, target_policies, target_values = batch
-        states = states.to(DEVICE)
-        target_policies = target_policies.to(DEVICE)
-        target_values = target_values.to(DEVICE)
+        states = states.to(self.device)
+        target_policies = target_policies.to(self.device)
+        target_values = target_values.to(self.device)
 
         pred_policies, pred_values = self.model(states)
         log_policies = torch.log_softmax(pred_policies, dim=1)
