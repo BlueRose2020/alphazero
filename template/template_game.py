@@ -43,7 +43,7 @@ class TemplateGame(BaseGame):
         raise NotImplementedError
 
     @staticmethod
-    def next_state(state: TensorGameState, action: int) -> tuple[TensorGameState, int]:
+    def next_state(state: TensorGameState, action: int, player: int) -> tuple[TensorGameState, int]:
         """执行动作后的状态转移，注意对于类似于象棋等的游戏，
         状态无需翻转，但UI层为了方便下棋，应实现状态翻转以保
         证玩家在下方，而模型在上方

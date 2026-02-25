@@ -187,6 +187,7 @@ class BaseApp:
 
     def hover(self) -> None:
         pos = pg.mouse.get_pos()
+        self.board_view.current_player = self.game.get_player()
         self.board_view.hover(self.screen, pos, self._state())
 
     def display(self) -> None:

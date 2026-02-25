@@ -38,10 +38,10 @@ def main() -> None:
 
     # 替换为你的模型类和ui类，设备为DEVICE（由配置文件配置，默认会自动选择cuda/cpu）
     # model = QuickModel()
-    model = TicTacToeModel()
-    ui = TicTacToeAPP(model=model, ai_config=ai_config)
-    # model = DotsAndBoxesModel()
-    # ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
+    # model = TicTacToeModel()
+    # ui = TicTacToeAPP(model=model, ai_config=ai_config)
+    model = DotsAndBoxesModel()
+    ui = DotsAndBoxesAPP(model=model, ai_config=ai_config)
     # model = GomokuModel()
     # ui = GomokuAPP(model=model, ai_config=ai_config)
 

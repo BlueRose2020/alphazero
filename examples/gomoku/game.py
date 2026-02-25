@@ -31,20 +31,13 @@ class GomokuGame(BaseGame):
         return PLAYER1 if moves % 2 == 0 else PLAYER2
 
     @staticmethod
-    def next_state(state: TensorGameState, action: int) -> tuple[TensorGameState, int]:
+    def next_state(state: TensorGameState, action: int, player: int) -> tuple[TensorGameState, int]:
         if action < 0 or action >= GomokuGame.BOARD_SIZE ** 2:
             raise ValueError("action 越界")
 
         row, col = divmod(action, GomokuGame.BOARD_SIZE)
-        if state[row, col].item() != 0:
-            raise ValueError("非法落子")
-
-        current_player = GomokuGame.current_player(state)
-        next_state = state.clone()
-        next_state[row, col] = float(current_player)
-
-        next_player = PLAYER2 if current_player == PLAYER1 else PLAYER1
-        return next_state, next_player
+        next_state = GomokuGame._apply_move(state, row, col, player)
+        return next_state, GomokuGame._next_player(player)
 
     @staticmethod
     def legal_action_mask(state: TensorGameState) -> TensorActions:
@@ -96,3 +89,16 @@ class GomokuGame(BaseGame):
                         return player
         
         return None
+
+    @staticmethod
+    def _apply_move(state: TensorGameState, row: int, col: int, player: int) -> TensorGameState:
+        if state[row, col].item() != 0:
+            raise ValueError("非法落子")
+
+        next_state = state.clone()
+        next_state[row, col] = float(player)
+        return next_state
+
+    @staticmethod
+    def _next_player(player: int) -> int:
+        return PLAYER2 if player == PLAYER1 else PLAYER1

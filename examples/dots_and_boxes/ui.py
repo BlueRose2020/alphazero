@@ -146,7 +146,7 @@ class DotsAndBoxesBoard(BoardView):
             if state[1, r, c].item() != 0:
                 return
 
-        player = DotsAndBoxesGame.current_player(state)
+        player = getattr(self, "current_player", PLAYER1)
         color = self.theme.primary_color if player == PLAYER1 else self.theme.danger_color
         color = (*color, 140)
 

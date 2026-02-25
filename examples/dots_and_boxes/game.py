@@ -19,10 +19,6 @@ class DotsAndBoxesGame(BaseGame):
         - channel 0: 水平边 (valid: [0:DOT_ROWS, 0:BOX_COLS])
         - channel 1: 垂直边 (valid: [0:BOX_ROWS, 0:DOT_COLS])
         - channel 2: 盒子归属 (valid: [0:BOX_ROWS, 0:BOX_COLS])
-
-    注意:
-        为保证 MCTS 可推断当前玩家，本实现将当前玩家标记存放在
-        state[2, BOX_ROWS, BOX_COLS] 位置，该位置不参与盒子归属。
     """
 
     BOX_ROWS = 3
@@ -39,37 +35,18 @@ class DotsAndBoxesGame(BaseGame):
 
     @staticmethod
     def initial_state() -> TensorGameState:
-        state = torch.zeros(DotsAndBoxesGame.STATE_SHAPE, dtype=torch.float32)
-        state[2, DotsAndBoxesGame.BOX_ROWS, DotsAndBoxesGame.BOX_COLS] = float(PLAYER1)
-        return state
+        return torch.zeros(DotsAndBoxesGame.STATE_SHAPE, dtype=torch.float32)
 
     @staticmethod
-    def current_player(state: TensorGameState) -> int:
-        value = int(state[2, DotsAndBoxesGame.BOX_ROWS, DotsAndBoxesGame.BOX_COLS].item())
-        return value if value in (PLAYER1, PLAYER2) else PLAYER1
-
-    @staticmethod
-    def next_state(state: TensorGameState, action: int) -> tuple[TensorGameState, int]:
+    def next_state(state: TensorGameState, action: int, player: int) -> tuple[TensorGameState, int]:
         if action < 0 or action >= DotsAndBoxesGame.NUM_ACTION:
             raise ValueError("action 越界")
 
         edge_type, r, c = DotsAndBoxesGame._action_to_edge(action)
         next_state = state.clone()
-
-        if edge_type == "H":
-            if next_state[0, r, c].item() != 0:
-                raise ValueError("非法落子")
-            next_state[0, r, c] = 1.0
-        else:
-            if next_state[1, r, c].item() != 0:
-                raise ValueError("非法落子")
-            next_state[1, r, c] = 1.0
-
-        current_player = DotsAndBoxesGame.current_player(state)
-        completed = DotsAndBoxesGame._update_boxes(next_state, edge_type, r, c, current_player)
-
-        next_player = current_player if completed else (-current_player)
-        next_state[2, DotsAndBoxesGame.BOX_ROWS, DotsAndBoxesGame.BOX_COLS] = float(next_player)
+        DotsAndBoxesGame._place_edge(next_state, edge_type, r, c)
+        completed = DotsAndBoxesGame._update_boxes(next_state, edge_type, r, c, player)
+        next_player = player if completed else (-player)
         return next_state, next_player
 
     @staticmethod
@@ -126,6 +103,18 @@ class DotsAndBoxesGame(BaseGame):
         return DotsAndBoxesGame.H_EDGE_COUNT + r * DotsAndBoxesGame.DOT_COLS + c
 
     @staticmethod
+    def _place_edge(state: TensorGameState, edge_type: str, r: int, c: int) -> None:
+        if edge_type == "H":
+            if state[0, r, c].item() != 0:
+                raise ValueError("非法落子")
+            state[0, r, c] = 1.0
+            return
+
+        if state[1, r, c].item() != 0:
+            raise ValueError("非法落子")
+        state[1, r, c] = 1.0
+
+    @staticmethod
     def _is_box_complete(state: TensorGameState, r: int, c: int) -> bool:
         top = state[0, r, c].item() != 0
         bottom = state[0, r + 1, c].item() != 0
@@ -170,10 +159,7 @@ class DotsAndBoxesGame(BaseGame):
     def get_enhanced_data(
         state: NNState, policy: TensorActions, value: TensorValue
     ) -> list[ExperienceDate]:
-        """点格棋自定义数据增强
-
-        需要保持玩家标记位在 state[2, BOX_ROWS, BOX_COLS] 不随增强移动。
-        """
+        """点格棋自定义数据增强"""
         enhanced: list[ExperienceDate] = []
 
         for k in range(4):
@@ -250,10 +236,6 @@ class DotsAndBoxesGame(BaseGame):
     def _transform_board(board: torch.Tensor, k: int, flip: bool) -> torch.Tensor:
         transformed = torch.zeros_like(board)
 
-        player_marker = board[
-            2, DotsAndBoxesGame.BOX_ROWS, DotsAndBoxesGame.BOX_COLS
-        ].item()
-
         for r in range(DotsAndBoxesGame.DOT_ROWS):
             for c in range(DotsAndBoxesGame.BOX_COLS):
                 if board[0, r, c].item() != 0:
@@ -274,9 +256,6 @@ class DotsAndBoxesGame(BaseGame):
                     nr, nc = DotsAndBoxesGame._transform_box(r, c, k, flip)
                     transformed[2, nr, nc] = board[2, r, c]
 
-        transformed[
-            2, DotsAndBoxesGame.BOX_ROWS, DotsAndBoxesGame.BOX_COLS
-        ] = player_marker
         return transformed
 
     @staticmethod

@@ -27,6 +27,7 @@ class BoardView:
     def __init__(self, rect: pg.Rect, theme: UITheme) -> None:
         self.rect = rect
         self.theme = theme
+        self.current_player: int = PLAYER1
 
     def action_from_pos(
         self, pos: Position, state: TensorGameState

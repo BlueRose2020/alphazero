@@ -7,15 +7,18 @@
 以下效果为本地训练的几个示例的动态演示，其中训练硬件配置为：
 **CPU：Intel i9-13900X**
 **GPU：RTX 4070 Laptop**
-**RAM:2×8GB**
-模型在项目的result/models/{name_of_game}/last_model.pth
+**RAM：2×8GB**
+模型位于**result/models/{name_of_game}/last_model.pth**
 可以直接在play.py中进行游戏
 
 ### 1. 井字棋
 
 每次搜索的模拟次数：50
+
 自对弈次数：1000
+
 **训练总耗时： 59s**
+
 神经网络直接输出的效果如下：
 
 ![TicTacToe 自对弈 UI](src/gif/tictactoe.gif)
@@ -23,8 +26,11 @@
 ### 2. 4×4点格棋
 
 每次搜索的模拟次数：80
+
 自对弈次数：3000
+
 **训练总耗时： 31m 23s**
+
 神经网络直接输出的效果如下：
 
 ![DotsAndBoxes 自对弈 UI](src/gif/dots_and_boxes.gif)
@@ -110,6 +116,7 @@ UI 入口在 [ui/app.py](ui/app.py)。棋盘与样式组件见 [ui/board.py](ui/
 - 点格棋 UI： [examples/dots_and_boxes/ui.py](examples/dots_and_boxes/ui.py)
 
 支持主题配色，支持自定义主题，可在[config/ui.py](config/ui.py)中选择或设置自己的主题，以下是部分主题的预览(除wood外均由ai生成)：
+
 | light | dark | wood |
 | --- | --- | --- |
 | ![](src/pic/tictactoe_light_theme.png) | ![](src/pic/tictactoe_dark_theme.png) | ![](src/pic/tictactoe_wood_theme.png) |
@@ -117,7 +124,6 @@ UI 入口在 [ui/app.py](ui/app.py)。棋盘与样式组件见 [ui/board.py](ui/
 |foresr|ocean|sunset|
 | --- | --- | --- |
 | ![](src/pic/tictactoe_forest_theme.png) | ![](src/pic/tictactoe_ocean_theme.png) | ![](src/pic/tictactoe_sunset_theme.png) |
-
 
 ### 训练产出
 

@@ -25,7 +25,7 @@ class BaseGame:
         Args:
             action (int): 执行的动作
         """
-        self._state, self._player = self.next_state(self._state, action)
+        self._state, self._player = self.next_state(self._state, action, self._player)
         
         done = self.is_terminal(self._state)
         if USE_HISTORY:
@@ -62,7 +62,7 @@ class BaseGame:
         raise NotImplementedError
 
     @staticmethod
-    def next_state(state: TensorGameState, action: int) -> tuple[TensorGameState, int]:
+    def next_state(state: TensorGameState, action: int, player: int) -> tuple[TensorGameState, int]:
         """获取输入的状态执行action后得到的状态即对应的玩家
 
         Args:
