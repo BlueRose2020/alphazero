@@ -5,9 +5,13 @@
 ## 效果展示
 
 以下效果为本地训练的几个示例的动态演示，其中训练硬件配置为：
+
 **CPU：Intel i9-13900X**
+
 **GPU：RTX 4070 Laptop**
+
 **RAM：2×8GB**
+
 模型位于**result/models/{name_of_game}/last_model.pth**
 可以直接在play.py中进行游戏
 
